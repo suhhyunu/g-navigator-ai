@@ -1,0 +1,15 @@
+# 필수
+streamlit
+altair
+folium
+requests
+beautifulsoup4
+numpy
+pandas
+google-generativeai
+
+# 선택 (없어도 앱은 동작하며, 해당 기능만 비활성화됨)
+streamlit-folium
+fpdf2
+openpyxl
+xlsxwriter
