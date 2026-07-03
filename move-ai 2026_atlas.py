@@ -1,27 +1,3 @@
-"""
-ATLAS AI v9.0 - Advanced Global Automotive Logistics Intelligence Platform
-Domestic & International Logistics with Multi-Stop Routes, Geopolitical Risk & AI Learning
-Real-time Data Integration | AI Assistant | Risk/Cost Calculators | Reporting & Sharing
-
-MERGE NOTE:
-- 기능(Functionality): v7.0 (국내/국제 탭, 경유지 다중 스탑 라우팅, Bulk Cargo, 지정학적 리스크
-  배율 계산, KITA 뉴스 크롤링, 몬테카를로 시뮬레이션, 전략 A/B/C, Gemini import 가드) 100% 유지
-- 디자인(Design): v4.6 스타일 적용 (실제 AIS 스타일 삼각형 벡터 마커 + 헤딩/속도 팝업,
-  지정학적 리스크를 반투명 Circle로 표시, 네이티브 st.bar_chart/st.line_chart, 강제 다크 CSS 제거,
-  얇고 작은 마커 스타일)
-- v9.0 신규: 실AIS(AISHub)/환율(Frankfurter)/기상청 태풍 API 연동(키 없으면 시뮬레이션 폴백),
-  Gemini AI 어시스턴트 & 리스크 브리핑, 통관일수/CBAM/보험료 계산기, 포워더 신뢰도,
-  PDF/Excel 리포트, 이메일(mailto)/Slack 공유, 즐겨찾기 경로, 다크모드 토글, 컴팩트(모바일) 모드,
-  지도 구간 확대(streamlit-folium 있으면 클릭 확대, 없으면 셀렉트박스 폴백)
-
-Requirements:
-  pip install streamlit folium requests beautifulsoup4 numpy pandas altair google-generativeai
-  # 선택 기능(없어도 앱은 동작, 해당 기능만 비활성화):
-  pip install streamlit-folium fpdf2 openpyxl
-
-Run:
-  streamlit run atlas_ai_merged.py
-"""
 import streamlit as st
 import altair as alt
 import folium
@@ -53,115 +29,114 @@ except:
     FPDF_AVAILABLE = False
 
 try:
-    import openpyxl  # noqa: F401  (pandas.to_excel 엔진 확인용)
+    import openpyxl
     OPENPYXL_AVAILABLE = True
 except:
     OPENPYXL_AVAILABLE = False
 
 try:
-    import xlsxwriter  # noqa: F401  (openpyxl 없을 때 대체 엔진)
+    import xlsxwriter
     XLSXWRITER_AVAILABLE = True
 except:
     XLSXWRITER_AVAILABLE = False
 
 st.set_page_config(page_title="ATLAS AI - Logistics Intelligence", layout="wide")
 
-# ---- v9.1 다국어(한/영) 지원 - 주요 타이틀/헤더에 한해 적용 ----
 LANG = {
     "ko": {
-        "app_title": "🌐 G-Navigator AI - Global Vehicle Logistics Navigator",
+        "app_title": "G-Navigator AI - Global Vehicle Logistics Navigator",
         "app_tagline": "**AI-Powered Supply Chain Intelligence | Real-time AIS Tracking | Risk Management**",
-        "tab_dashboard": "🏠 대시보드",
-        "tab_domestic": "🇰🇷 국내운송 (Domestic)",
-        "tab_intl": "🌍 국제운송 (International)",
-        "domestic_header": "🇰🇷 국내 운송 관리 시스템",
-        "intl_header": "🌍 International Logistics Management",
-        "dashboard_header": "🏠 ATLAS AI 홈 대시보드",
+        "tab_dashboard": "대시보드",
+        "tab_domestic": "국내운송 (Domestic)",
+        "tab_intl": "국제운송 (International)",
+        "domestic_header": "국내 운송 관리 시스템",
+        "intl_header": "International Logistics Management",
+        "dashboard_header": "ATLAS AI 홈 대시보드",
 
-        "sidebar_domestic_settings": "🇰🇷 국내운송 설정",
-        "sidebar_intl_settings": "🌍 국제운송 설정",
-        "sidebar_global_settings": "🔧 전역 설정 / API 연동",
+        "sidebar_domestic_settings": "국내운송 설정",
+        "sidebar_intl_settings": "국제운송 설정",
+        "sidebar_global_settings": "전역 설정 / API 연동",
         "cargo_type_label": "화물 종류",
         "dangerous_goods_label": "위험물",
 
-        "fav_title": "⭐ 즐겨찾기 경로 (영구 저장)",
+        "fav_title": "즐겨찾기 경로 (영구 저장)",
         "fav_name_input": "현재 경로 저장 이름",
-        "fav_save_btn": "💾 현재 경로 즐겨찾기 저장",
+        "fav_save_btn": "현재 경로 즐겨찾기 저장",
         "fav_saved_msg": "저장 완료 (DB에 영구 저장됨)",
         "fav_delete_select": "삭제할 즐겨찾기",
-        "fav_delete_btn": "🗑️ 선택 삭제",
+        "fav_delete_btn": "선택 삭제",
         "fav_empty": "아직 저장된 즐겨찾기가 없습니다.",
 
-        "report_title": "📤 리포트 내보내기 및 공유",
-        "report_pdf_btn": "📄 PDF 다운로드",
+        "report_title": "리포트 내보내기 및 공유",
+        "report_pdf_btn": "PDF 다운로드",
         "report_pdf_missing": "PDF 내보내기는 `pip install fpdf2` 설치 후 사용 가능합니다.",
-        "report_excel_btn": "📊 Excel 다운로드",
+        "report_excel_btn": "Excel 다운로드",
         "report_excel_missing": "Excel 내보내기는 `pip install openpyxl` (또는 `xlsxwriter`) 설치 후 사용 가능합니다.",
         "report_email_header": "**이메일로 공유**",
         "report_email_to": "받는 사람 이메일 (선택)",
-        "report_email_open_btn": "📧 메일 클라이언트로 열기",
+        "report_email_open_btn": "메일 클라이언트로 열기",
         "report_slack_header": "**Slack으로 공유**",
         "report_slack_msg_label": "Slack 메시지",
-        "report_slack_send_btn": "💬 Slack으로 전송",
+        "report_slack_send_btn": "Slack으로 전송",
 
-        "compare_strategy_title": "⚖️ 전략 A/B/C 동시 비교",
-        "compare_strategy_btn": "▶️ 전체 전략 비교 실행",
+        "compare_strategy_title": "전략 A/B/C 동시 비교",
+        "compare_strategy_btn": "전체 전략 비교 실행",
         "compare_route_title": "🆚 경로 비교 (다른 목적지와 비교)",
         "compare_route_dest_label": "비교할 목적지",
         "compare_route_btn": "🆚 비교하기",
 
-        "accept_reject_title": "🤖 운송 수락 판단 지원 (Call 수락 AI)",
+        "accept_reject_title": "운송 수락 판단 지원 (Call 수락 AI)",
         "accept_reject_price_label": "견적/청구 운임 (USD)",
         "accept_reject_no_sim": "먼저 시뮬레이션을 실행하면 견적가 대비 수익성을 분석할 수 있습니다.",
         "accept_reject_verdict_label": "판단",
-        "accept_reject_margin_label": "💵 예상 마진",
-        "accept_reject_prob_label": "📈 수익 확률",
+        "accept_reject_margin_label": "예상 마진",
+        "accept_reject_prob_label": "수익 확률",
 
-        "reposition_title": "📍 권역 이동 추천 (도착 후 재배치)",
-        "social_benefit_title": "🌱 철도 vs 도로 사회·환경적 편익 비교",
-        "rail_platform_title": "🚆 철도 물류 플랫폼",
+        "reposition_title": "권역 이동 추천 (도착 후 재배치)",
+        "social_benefit_title": "철도 vs 도로 사회·환경적 편익 비교",
+        "rail_platform_title": "철도 물류 플랫폼",
         "rail_platform_cars_header": "**실시간 열차/빈 화차 정보 조회**",
-        "rail_platform_ktx_header": "**🚄 KTX 특송 AI 접수**",
+        "rail_platform_ktx_header": "**KTX 특송 AI 접수**",
         "rail_platform_ktx_origin": "발송역",
         "rail_platform_ktx_dest": "도착역",
         "rail_platform_ktx_desc": "화물 설명",
-        "rail_platform_ktx_submit": "📮 KTX 특송 접수하기",
+        "rail_platform_ktx_submit": "KTX 특송 접수하기",
 
-        "ai_assistant_title": "🤖 AI 어시스턴트 (Gemini)",
+        "ai_assistant_title": "AI 어시스턴트 (Gemini)",
         "ai_question_label": "물류 관련 질문을 입력하세요",
-        "ai_ask_btn": "💬 질문하기",
-        "ai_briefing_btn": "📰 AI 리스크 브리핑 생성",
+        "ai_ask_btn": "질문하기",
+        "ai_briefing_btn": "AI 리스크 브리핑 생성",
 
-        "calculator_title": "📋 리스크·비용 계산기",
-        "forwarder_header": "**🚚 포워더 신뢰도 (샘플 데이터)**",
+        "calculator_title": "리스크·비용 계산기",
+        "forwarder_header": "**포워더 신뢰도 (샘플 데이터)**",
 
-        "dashboard_shipments_title": "🚚 진행중인 배송 목록",
+        "dashboard_shipments_title": "진행중인 배송 목록",
         "dashboard_shipments_empty": "아직 등록된 배송이 없습니다. 각 탭의 시뮬레이션 결과에서 '진행중인 배송으로 등록' 버튼으로 추가할 수 있어요.",
         "dashboard_status_change_label": "상태 변경할 배송",
         "dashboard_status_new_label": "새 상태",
-        "dashboard_status_update_btn": "✅ 상태 업데이트",
+        "dashboard_status_update_btn": "상태 업데이트",
         "dashboard_delete_label": "삭제할 배송",
-        "dashboard_delete_btn": "🗑️ 배송 삭제",
-        "dashboard_cost_trend_title": "📈 비용 추이 (최근 시뮬레이션 이력)",
+        "dashboard_delete_btn": "배송 삭제",
+        "dashboard_cost_trend_title": "비용 추이 (최근 시뮬레이션 이력)",
         "dashboard_cost_trend_empty": "아직 시뮬레이션 이력이 없습니다. 각 탭에서 시뮬레이션을 실행하면 여기에 누적됩니다.",
-        "dashboard_visibility_title": "🔭 공급망 가시성 (전체 화물 현황)",
-        "dashboard_pattern_title": "🧠 운행 패턴 분석 (암묵지 디지털 자산화)",
+        "dashboard_visibility_title": "공급망 가시성 (전체 화물 현황)",
+        "dashboard_pattern_title": "운행 패턴 분석 (암묵지 디지털 자산화)",
         "dashboard_pattern_empty": "아직 분석할 시뮬레이션 이력이 없습니다. 각 탭에서 시뮬레이션을 실행해보세요.",
-        "dashboard_pattern_ai_btn": "🤖 AI 패턴 인사이트 생성",
+        "dashboard_pattern_ai_btn": "AI 패턴 인사이트 생성",
         "dashboard_pattern_top_routes": "**가장 많이 조회된 경로 Top 5**",
         "dashboard_pattern_top_strategy": "**가장 많이 선택된 전략**",
         "dashboard_pattern_avg_risk": "**운송 유형별 평균 리스크**",
 
-        "register_shipment_btn": "🚚 진행중인 배송으로 등록",
+        "register_shipment_btn": "진행중인 배송으로 등록",
         "register_shipment_msg": "진행중인 배송으로 등록했습니다. 홈 대시보드에서 확인하세요.",
 
         "accept_reject_caption": "수익 확률 = 몬테카를로 시뮬레이션 1000회 중 견적가가 실제 비용보다 높았던 비율",
         "reposition_result_msg": "'{dest}' 도착 후에는 인근의 **{name}**(약 {dist:.0f}km, 혼잡도 {score}/100)로 이동하면 다음 화물을 더 빠르게 확보할 가능성이 높습니다.",
         "reposition_empty": "150km 이내 인근 터미널 데이터가 없습니다.",
-        "social_benefit_co2_label": "🌫️ CO2 절감",
-        "social_benefit_air_label": "💨 대기오염 개선(근사)",
-        "social_benefit_accident_label": "🚧 사고 리스크 지수",
-        "social_benefit_congestion_label": "🚗 도로혼잡 완화(근사)",
+        "social_benefit_co2_label": "CO2 절감",
+        "social_benefit_air_label": "대기오염 개선(근사)",
+        "social_benefit_accident_label": "사고 리스크 지수",
+        "social_benefit_congestion_label": "도로혼잡 완화(근사)",
         "social_benefit_caption": "사회·환경적 편익은 거리 기반 근사치입니다. 실서비스 전환 시 온실가스종합정보센터/교통안전공단 통계 연동을 권장합니다.",
         "social_benefit_co2_delta": "도로 {road:.2f}→철도 {rail:.2f}",
         "social_benefit_accident_delta": "도로 {road} vs 철도 {rail}",
@@ -177,105 +152,105 @@ LANG = {
         "pattern_ai_hint": "Gemini API 키를 등록하면 AI가 패턴에서 인사이트를 요약해줍니다.",
         "delay_buffer_warning": "⏳ 예상 소요시간의 변동성이 높습니다 (표준편차 {std:.1f}일). 리드타임에 최소 **{buf}일**의 버퍼를 추가하는 것을 권장합니다.",
 
-        "dashboard_kpi_shipments": "🚚 진행중인 배송 건수",
-        "dashboard_kpi_avg_risk": "⚠️ 평균 리스크 스코어",
-        "dashboard_kpi_total_cost": "💰 총 예상비용",
-        "dashboard_kpi_sim_count": "📈 누적 시뮬레이션 횟수",
+        "dashboard_kpi_shipments": "진행중인 배송 건수",
+        "dashboard_kpi_avg_risk": "평균 리스크 스코어",
+        "dashboard_kpi_total_cost": "총 예상비용",
+        "dashboard_kpi_sim_count": "누적 시뮬레이션 횟수",
     },
     "en": {
-        "app_title": "🌐 G-Navigator AI - Global Vehicle Logistics Navigator",
+        "app_title": "G-Navigator AI - Global Vehicle Logistics Navigator",
         "app_tagline": "**AI-Powered Supply Chain Intelligence | Real-time AIS Tracking | Risk Management**",
-        "tab_dashboard": "🏠 Dashboard",
-        "tab_domestic": "🇰🇷 Domestic Logistics",
-        "tab_intl": "🌍 International Logistics",
-        "domestic_header": "🇰🇷 Domestic Logistics Management System",
-        "intl_header": "🌍 International Logistics Management",
-        "dashboard_header": "🏠 ATLAS AI Home Dashboard",
+        "tab_dashboard": "Dashboard",
+        "tab_domestic": "Domestic Logistics",
+        "tab_intl": "International Logistics",
+        "domestic_header": "Domestic Logistics Management System",
+        "intl_header": "International Logistics Management",
+        "dashboard_header": "ATLAS AI Home Dashboard",
 
-        "sidebar_domestic_settings": "🇰🇷 Domestic Settings",
-        "sidebar_intl_settings": "🌍 International Settings",
-        "sidebar_global_settings": "🔧 Global Settings / API Integration",
+        "sidebar_domestic_settings": "Domestic Settings",
+        "sidebar_intl_settings": "International Settings",
+        "sidebar_global_settings": "Global Settings / API Integration",
         "cargo_type_label": "Cargo Type",
         "dangerous_goods_label": "Dangerous Goods",
 
-        "fav_title": "⭐ Favorite Routes (Saved Permanently)",
+        "fav_title": "Favorite Routes (Saved Permanently)",
         "fav_name_input": "Name for current route",
-        "fav_save_btn": "💾 Save current route to favorites",
+        "fav_save_btn": "Save current route to favorites",
         "fav_saved_msg": "Saved (persisted to database)",
         "fav_delete_select": "Favorite to delete",
-        "fav_delete_btn": "🗑️ Delete selected",
+        "fav_delete_btn": "Delete selected",
         "fav_empty": "No favorites saved yet.",
 
-        "report_title": "📤 Export Report & Share",
-        "report_pdf_btn": "📄 Download PDF",
+        "report_title": "Export Report & Share",
+        "report_pdf_btn": "Download PDF",
         "report_pdf_missing": "PDF export requires `pip install fpdf2`.",
-        "report_excel_btn": "📊 Download Excel",
+        "report_excel_btn": "Download Excel",
         "report_excel_missing": "Excel export requires `pip install openpyxl` (or `xlsxwriter`).",
         "report_email_header": "**Share via Email**",
         "report_email_to": "Recipient email (optional)",
-        "report_email_open_btn": "📧 Open in mail client",
+        "report_email_open_btn": "Open in mail client",
         "report_slack_header": "**Share via Slack**",
         "report_slack_msg_label": "Slack message",
-        "report_slack_send_btn": "💬 Send to Slack",
+        "report_slack_send_btn": "Send to Slack",
 
-        "compare_strategy_title": "⚖️ Compare Strategies A/B/C",
-        "compare_strategy_btn": "▶️ Run full strategy comparison",
+        "compare_strategy_title": "Compare Strategies A/B/C",
+        "compare_strategy_btn": "Run full strategy comparison",
         "compare_route_title": "🆚 Compare Routes (vs. another destination)",
         "compare_route_dest_label": "Destination to compare",
         "compare_route_btn": "🆚 Compare",
 
-        "accept_reject_title": "🤖 Shipment Accept/Reject Advisor (Call AI)",
+        "accept_reject_title": "Shipment Accept/Reject Advisor (Call AI)",
         "accept_reject_price_label": "Quoted freight rate (USD)",
         "accept_reject_no_sim": "Run a simulation first to analyze profitability against the quoted price.",
         "accept_reject_verdict_label": "Verdict",
-        "accept_reject_margin_label": "💵 Expected Margin",
-        "accept_reject_prob_label": "📈 Profit Probability",
+        "accept_reject_margin_label": "Expected Margin",
+        "accept_reject_prob_label": "Profit Probability",
 
-        "reposition_title": "📍 Repositioning Suggestion (after arrival)",
-        "social_benefit_title": "🌱 Rail vs Road Social & Environmental Benefit Comparison",
-        "rail_platform_title": "🚆 Rail Logistics Platform",
+        "reposition_title": "Repositioning Suggestion (after arrival)",
+        "social_benefit_title": "Rail vs Road Social & Environmental Benefit Comparison",
+        "rail_platform_title": "Rail Logistics Platform",
         "rail_platform_cars_header": "**Real-time Train / Empty Freight Car Info**",
-        "rail_platform_ktx_header": "**🚄 KTX Express AI Booking**",
+        "rail_platform_ktx_header": "**KTX Express AI Booking**",
         "rail_platform_ktx_origin": "Departure Station",
         "rail_platform_ktx_dest": "Arrival Station",
         "rail_platform_ktx_desc": "Cargo Description",
-        "rail_platform_ktx_submit": "📮 Submit KTX Express Booking",
+        "rail_platform_ktx_submit": "Submit KTX Express Booking",
 
-        "ai_assistant_title": "🤖 AI Assistant (Gemini)",
+        "ai_assistant_title": "AI Assistant (Gemini)",
         "ai_question_label": "Ask a logistics-related question",
-        "ai_ask_btn": "💬 Ask",
-        "ai_briefing_btn": "📰 Generate AI Risk Briefing",
+        "ai_ask_btn": "Ask",
+        "ai_briefing_btn": "Generate AI Risk Briefing",
 
-        "calculator_title": "📋 Risk & Cost Calculators",
-        "forwarder_header": "**🚚 Forwarder Reputation (sample data)**",
+        "calculator_title": "Risk & Cost Calculators",
+        "forwarder_header": "**Forwarder Reputation (sample data)**",
 
-        "dashboard_shipments_title": "🚚 Active Shipments",
+        "dashboard_shipments_title": "Active Shipments",
         "dashboard_shipments_empty": "No shipments registered yet. Use the 'Register as active shipment' button in either tab's simulation results.",
         "dashboard_status_change_label": "Shipment to update",
         "dashboard_status_new_label": "New status",
-        "dashboard_status_update_btn": "✅ Update status",
+        "dashboard_status_update_btn": "Update status",
         "dashboard_delete_label": "Shipment to delete",
-        "dashboard_delete_btn": "🗑️ Delete shipment",
-        "dashboard_cost_trend_title": "📈 Cost Trend (recent simulation history)",
+        "dashboard_delete_btn": "Delete shipment",
+        "dashboard_cost_trend_title": "Cost Trend (recent simulation history)",
         "dashboard_cost_trend_empty": "No simulation history yet. Run a simulation in either tab to start accumulating data.",
-        "dashboard_visibility_title": "🔭 Supply Chain Visibility (all shipments)",
-        "dashboard_pattern_title": "🧠 Operating Pattern Analysis (Tacit Knowledge Digitization)",
+        "dashboard_visibility_title": "Supply Chain Visibility (all shipments)",
+        "dashboard_pattern_title": "Operating Pattern Analysis (Tacit Knowledge Digitization)",
         "dashboard_pattern_empty": "No simulation history to analyze yet. Try running a simulation in either tab.",
-        "dashboard_pattern_ai_btn": "🤖 Generate AI Pattern Insight",
+        "dashboard_pattern_ai_btn": "Generate AI Pattern Insight",
         "dashboard_pattern_top_routes": "**Top 5 Most Viewed Routes**",
         "dashboard_pattern_top_strategy": "**Most Selected Strategy**",
         "dashboard_pattern_avg_risk": "**Average Risk by Route Type**",
 
-        "register_shipment_btn": "🚚 Register as active shipment",
+        "register_shipment_btn": "Register as active shipment",
         "register_shipment_msg": "Registered as an active shipment. Check the home dashboard.",
 
         "accept_reject_caption": "Profit probability = share of 1,000 Monte Carlo runs where the quoted price exceeded the actual cost",
         "reposition_result_msg": "After arriving at '{dest}', moving to nearby **{name}** (~{dist:.0f}km, congestion {score}/100) increases the chance of securing the next load faster.",
         "reposition_empty": "No nearby terminal data within 150km.",
-        "social_benefit_co2_label": "🌫️ CO2 Reduction",
-        "social_benefit_air_label": "💨 Air Pollution Improvement (approx.)",
-        "social_benefit_accident_label": "🚧 Accident Risk Index",
-        "social_benefit_congestion_label": "🚗 Congestion Relief (approx.)",
+        "social_benefit_co2_label": "CO2 Reduction",
+        "social_benefit_air_label": "Air Pollution Improvement (approx.)",
+        "social_benefit_accident_label": "Accident Risk Index",
+        "social_benefit_congestion_label": "Congestion Relief (approx.)",
         "social_benefit_caption": "Social/environmental benefits are distance-based approximations. For production use, integrate with GIR/KoROAD statistics.",
         "social_benefit_co2_delta": "Road {road:.2f}→Rail {rail:.2f}",
         "social_benefit_accident_delta": "Road {road} vs Rail {rail}",
@@ -291,28 +266,21 @@ LANG = {
         "pattern_ai_hint": "Register a Gemini API key to get AI-generated pattern insights.",
         "delay_buffer_warning": "⏳ Estimated delivery time shows high variability (std dev {std:.1f} days). We recommend adding at least **{buf} days** of lead-time buffer.",
 
-        "dashboard_kpi_shipments": "🚚 Active Shipments",
-        "dashboard_kpi_avg_risk": "⚠️ Avg Risk Score",
-        "dashboard_kpi_total_cost": "💰 Total Expected Cost",
-        "dashboard_kpi_sim_count": "📈 Total Simulations",
+        "dashboard_kpi_shipments": "Active Shipments",
+        "dashboard_kpi_avg_risk": "Avg Risk Score",
+        "dashboard_kpi_total_cost": "Total Expected Cost",
+        "dashboard_kpi_sim_count": "Total Simulations",
     },
 }
 
 def t(key):
-    """현재 언어(session_state.nav_language)에 맞는 문자열 반환. 주요 UI 라벨/버튼/헤더에 번역 지원.
-    NOTE: 전략명/설명, 화물종류 목록, 항만/터미널명 등 데이터 자체는 번역 대상이 아닙니다."""
     lang = st.session_state.get("nav_language", "ko") if hasattr(st, "session_state") else "ko"
     return LANG.get(lang, LANG["ko"]).get(key, LANG["ko"].get(key, key))
 
 st.title(t("app_title"))
 st.markdown(t("app_tagline"))
 
-# =========================================================================
-# DOMESTIC PORTS/TERMINALS (한국)
-# =========================================================================
-
 DOMESTIC_TERMINALS = {
-    # 항구
     "부산항": [129.0430, 35.0979, "Port", "Mega Hub"],
     "인천항": [126.6297, 37.3559, "Port", "Major Hub"],
     "광양항": [127.7347, 34.9405, "Port", "Major Hub"],
@@ -323,14 +291,12 @@ DOMESTIC_TERMINALS = {
     "동해항": [129.1196, 37.5203, "Port", "Regional Hub"],
     "속초항": [128.5934, 38.2038, "Port", "Regional Hub"],
 
-    # 공항
     "인천공항": [126.4406, 37.4602, "Airport", "Mega Hub"],
     "김포공항": [126.8010, 37.5580, "Airport", "Major Hub"],
     "부산공항": [129.0676, 35.1792, "Airport", "Major Hub"],
     "대구공항": [128.6556, 35.8949, "Airport", "Regional Hub"],
     "광주공항": [126.8048, 35.1151, "Airport", "Regional Hub"],
 
-    # 내륙터미널
     "서울": [126.9780, 37.5665, "Terminal", "Major Hub"],
     "대전": [127.4245, 36.3504, "Terminal", "Regional Hub"],
     "대구": [128.5955, 35.8714, "Terminal", "Regional Hub"],
@@ -341,8 +307,6 @@ DOMESTIC_TERMINALS = {
     "김천": [128.1146, 35.9928, "Terminal", "Regional Hub"],
 }
 
-# 영문 표시명 매핑 - 내부 키(DOMESTIC_TERMINALS)는 한국어를 그대로 유지하고,
-# 화면 표시(selectbox 등)만 언어에 따라 바꾸기 위한 용도. DB/좌표 조회 등 로직에는 영향 없음.
 DOMESTIC_TERMINAL_NAMES_EN = {
     "부산항": "Busan Port", "인천항": "Incheon Port", "광양항": "Gwangyang Port", "울산항": "Ulsan Port",
     "목포항": "Mokpo Port", "군산항": "Gunsan Port", "여수항": "Yeosu Port", "동해항": "Donghae Port", "속초항": "Sokcho Port",
@@ -353,14 +317,11 @@ DOMESTIC_TERMINAL_NAMES_EN = {
 }
 
 def display_terminal_name(name):
-    """터미널 표시명 - 영어 모드일 때만 영문명으로 변환, 내부 키/DB 값은 항상 한국어 원본 유지"""
     if st.session_state.get("nav_language", "ko") == "en":
         return DOMESTIC_TERMINAL_NAMES_EN.get(name, name)
     return name
 
-# International Ports
 PORTS_DB = {
-    # Asia-Pacific
     "Busan (부산, Korea)": [129.0755, 35.0982, "South Korea", "Mega Hub"],
     "Incheon (인천, Korea)": [126.6270, 37.3592, "South Korea", "Major Hub"],
     "Shanghai (상하이, China)": [121.4737, 31.2304, "China", "Mega Hub"],
@@ -376,24 +337,20 @@ PORTS_DB = {
     "Kobe (고베, Japan)": [135.1955, 34.6901, "Japan", "Regional Hub"],
     "Ho Chi Minh (호치민, Vietnam)": [106.6869, 10.7769, "Vietnam", "Regional Hub"],
 
-    # Middle East & South Asia
     "Dubai (두바이, UAE)": [55.2708, 25.2048, "UAE", "Mega Hub"],
     "Jebel Ali (제벨알리, UAE)": [55.1170, 24.9774, "UAE", "Mega Hub"],
     "Karachi (카라치, Pakistan)": [67.0099, 24.7569, "Pakistan", "Major Hub"],
     "Mumbai (뭄바이, India)": [72.8479, 19.0176, "India", "Major Hub"],
 
-    # Europe
     "Rotterdam (로테르담)": [4.2917, 51.9225, "Netherlands", "Mega Hub"],
     "Hamburg (함부르크)": [10.0086, 53.3456, "Germany", "Mega Hub"],
     "Antwerp (앤트워프)": [4.4699, 51.3397, "Belgium", "Mega Hub"],
 
-    # North America
     "Los Angeles (LA)": [-118.2437, 33.7490, "USA", "Mega Hub"],
     "Long Beach (롱비치)": [-118.1937, 33.7381, "USA", "Mega Hub"],
     "New York (뉴욕)": [-74.0060, 40.7128, "USA", "Mega Hub"],
 }
 
-# 지정학적 리스크 지역 (좌표는 [lat, lon] 4개 모서리)
 GEOPOLITICAL_RISKS = {
     "Strait of Hormuz (호르무즈 해협)": {
         "coords": [[25.5, 56.5], [25.5, 57.0], [26.0, 57.0], [26.0, 56.5]],
@@ -421,7 +378,6 @@ GEOPOLITICAL_RISKS = {
     },
 }
 
-# Transportation Modes
 TRANSPORT_MODES = {
     "AIR": {"cost_multiplier": 3.5, "time_multiplier": 0.15, "risk": 35, "co2": 1.8, "capacity": "Limited"},
     "SEA": {"cost_multiplier": 1.0, "time_multiplier": 1.0, "risk": 55, "co2": 0.2, "capacity": "Very High"},
@@ -429,17 +385,11 @@ TRANSPORT_MODES = {
     "ROAD": {"cost_multiplier": 1.2, "time_multiplier": 0.6, "risk": 45, "co2": 1.0, "capacity": "Medium"},
 }
 
-# Bulk Cargo Types
 BULK_CARGO_TYPES = [
     "Coal", "Iron Ore", "Grain", "Bauxite", "Phosphate",
     "Sulfur", "Fertilizer", "Wood Chips", "Cement", "Custom"
 ]
 
-# =========================================================================
-# v9.0 신규: 리스크/비용 계산용 참조 데이터
-# =========================================================================
-
-# Incoterms별 평균 통관 소요일수 (수출/수입 측 통관 책임 차이 반영, 근사치)
 INCOTERMS_CLEARANCE_DAYS = {
     "EXW": {"export_days": 3, "import_days": 4, "note": "구매자가 수출/수입 통관 모두 책임 (실무상 셀러 협조 필요)"},
     "FCA": {"export_days": 2, "import_days": 4, "note": "판매자 수출통관, 구매자 수입통관"},
@@ -454,15 +404,13 @@ INCOTERMS_CLEARANCE_DAYS = {
     "DDP": {"export_days": 1, "import_days": 1, "note": "판매자가 수출/수입 통관 모두 책임 (구매자 부담 최소)"},
 }
 
-# 위험물/특정 화물 추가 통관 지연일
 CARGO_CLEARANCE_EXTRA_DAYS = {
     "위험물": 2, "Dangerous Goods": 2,
     "식품": 1, "Batteries": 2, "Semiconductors": 1,
 }
 
-EU_CARBON_PRICE_EUR_PER_TON = 90.0  # CBAM 참고용 근사 탄소가격 (EU ETS 근사치, 실제는 변동)
+EU_CARBON_PRICE_EUR_PER_TON = 90.0
 
-# 포워더/화주 신뢰도 샘플 데이터 (실무 도입 시 실제 이력 DB로 교체)
 FORWARDER_REPUTATION = {
     "HMM": {"on_time_rate": 92.5, "incident_rate": 1.2, "avg_rating": 4.4},
     "Maersk": {"on_time_rate": 90.1, "incident_rate": 1.5, "avg_rating": 4.3},
@@ -473,10 +421,6 @@ FORWARDER_REPUTATION = {
     "Evergreen": {"on_time_rate": 87.8, "incident_rate": 1.9, "avg_rating": 4.0},
     "SM Line": {"on_time_rate": 90.6, "incident_rate": 1.4, "avg_rating": 4.2},
 }
-
-# =========================================================================
-# SESSION STATE
-# =========================================================================
 
 if 'selected_strategy' not in st.session_state:
     st.session_state.selected_strategy = "STRATEGY_B"
@@ -491,16 +435,15 @@ if 'current_tab' not in st.session_state:
     st.session_state.current_tab = 0
 
 if 'ais_vessels_domestic' not in st.session_state:
-    st.session_state.ais_vessels_domestic = None  # lazily generated (경로 의존)
+    st.session_state.ais_vessels_domestic = None
 
 if 'ais_vessels_intl' not in st.session_state:
-    st.session_state.ais_vessels_intl = None  # lazily generated (경로 의존)
+    st.session_state.ais_vessels_intl = None
 
-# ---- v9.0 신규 세션 상태 ----
 if 'currency' not in st.session_state:
     st.session_state.currency = "USD"
 if 'exchange_rates' not in st.session_state:
-    st.session_state.exchange_rates = None  # {"KRW": 1350.0, "EUR": 0.92, ...}
+    st.session_state.exchange_rates = None
 if 'dark_mode' not in st.session_state:
     st.session_state.dark_mode = False
 if 'compact_mode' not in st.session_state:
@@ -534,10 +477,6 @@ if 'risk_alert_threshold' not in st.session_state:
 if 'auto_slack_alert' not in st.session_state:
     st.session_state.auto_slack_alert = False
 
-# =========================================================================
-# HELPER FUNCTIONS - CORE LOGIC (v7.0 기능 유지)
-# =========================================================================
-
 def haversine_km(lon1, lat1, lon2, lat2):
     R = 6371.0
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -547,7 +486,6 @@ def haversine_km(lon1, lat1, lon2, lat2):
     return 2*R*math.asin(math.sqrt(a))
 
 def create_ai_route_with_waypoints(origin_coord, waypoints, dest_coord, num_points=15, offset_km=20):
-    """경유지를 고려한 AI 경로 생성 (다중 스탑 지원)"""
     all_points = [origin_coord] + waypoints + [dest_coord]
     route_points = []
 
@@ -586,7 +524,6 @@ def create_ai_route_with_waypoints(origin_coord, waypoints, dest_coord, num_poin
     return route_points
 
 def apply_geopolitical_risk(route_distance, selected_risks):
-    """지정학적 리스크에 따른 거리/비용 조정"""
     risk_multiplier = 1.0
     risk_description = []
 
@@ -600,7 +537,6 @@ def apply_geopolitical_risk(route_distance, selected_risks):
     return adjusted_distance, risk_multiplier, risk_description
 
 def fetch_logistics_news():
-    """KITA 물류 뉴스 크롤링"""
     try:
         url = "https://www.kita.net/shippers/board/newsList.do"
         headers = {
@@ -626,7 +562,6 @@ def fetch_logistics_news():
         return [f"뉴스 로드 오류: {str(e)[:50]}"]
 
 def render_ai_dashboard():
-    """AI 뉴스 대시보드 렌더링"""
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -642,24 +577,19 @@ def render_ai_dashboard():
         st.metric("Geopolitical Risk", "CRITICAL", "Red Sea & Middle East")
 
     st.markdown("---")
-    st.subheader("📰 Real-time Global Maritime Intelligence (MarineTraffic AIS)")
+    st.subheader("Real-time Global Maritime Intelligence (MarineTraffic AIS)")
     col_left, col_right = st.columns([3, 1])
 
     with col_left:
-        st.write("🚢 **Active Vessels: 150+** | 🏴 **Ports: 50+** | ⚠️ **Risk Zones** | ━━ **Routes**")
-        st.info("✨ **AI Learning:** 최신 물류 뉴스와 해운 동향을 실시간 분석 중...")
+        st.write("**Active Vessels: 150+** | **Ports: 50+** | **Risk Zones** | ━━ **Routes**")
+        st.info("**AI Learning:** 최신 물류 뉴스와 해운 동향을 실시간 분석 중...")
 
     with col_right:
-        st.write("**🤖 AI Status**")
+        st.write("**AI Status**")
         st.success("Learning Active")
         st.write("Updates: Real-time")
 
-# =========================================================================
-# HELPER FUNCTIONS - MAP & CHART DESIGN (v4.6 스타일 적용)
-# =========================================================================
-
 def get_vessel_color(vessel_type):
-    """선박 타입별 색상 (v4.6 디자인)"""
     color_map = {
         "Container": "#FF6B6B",
         "Bulk Carrier": "#4ECDC4",
@@ -670,64 +600,43 @@ def get_vessel_color(vessel_type):
     }
     return color_map.get(vessel_type, "#95A5A6")
 
-
-# ---- 해상 항로(waypoint) 정의: 육지를 피해 실제 바다 위만 지나가도록 경로화 ----
-# 각 lane: "path"(경로 좌표 [lon,lat] 리스트), "lon_jitter"/"lat_jitter"(경로 기준 편차 범위).
-# 편차 범위를 해안선 반대쪽(바다 방향)으로만 주면 육지에 찍히는 것을 방지할 수 있음.
-
 GLOBAL_SHIPPING_LANES = [
-    # 한중 항로 (동중국해 먼바다, 한국/중국 연안 모두 회피)
     {"path": [[128.5, 34.0], [125.0, 32.0], [122.5, 30.5], [121.8, 30.0]],
      "lon_jitter": (-0.4, 0.4), "lat_jitter": (-0.3, 0.3), "name_prefix": "EAST CHINA SEA"},
-    # 남중국해 (베트남/필리핀/보르네오 육지를 피해 바다 중앙을 통과)
     {"path": [[114.0, 20.0], [112.0, 15.0], [110.0, 10.0], [107.0, 5.0], [104.0, 2.0]],
      "lon_jitter": (-0.5, 0.5), "lat_jitter": (-0.5, 0.5), "name_prefix": "SOUTH CHINA SEA"},
-    # 말라카 해협 (좁은 해협이므로 편차 최소화)
     {"path": [[103.8, 1.3], [100.5, 3.0], [97.5, 4.5], [95.0, 6.0]],
      "lon_jitter": (-0.1, 0.1), "lat_jitter": (-0.08, 0.08), "name_prefix": "MALACCA STRAIT"},
-    # 인도양 (스리랑카 남쪽 먼바다를 지나 아라비아해 횡단)
     {"path": [[80.0, 6.0], [75.0, 8.0], [68.0, 10.0], [60.0, 11.5], [52.0, 13.0]],
      "lon_jitter": (-0.8, 0.8), "lat_jitter": (-0.6, 0.6), "name_prefix": "INDIAN OCEAN"},
-    # 홍해 (좁은 해역)
     {"path": [[43.3, 12.6], [40.0, 17.0], [37.0, 22.0], [34.5, 27.5]],
      "lon_jitter": (-0.2, 0.2), "lat_jitter": (-0.15, 0.15), "name_prefix": "RED SEA"},
-    # 수에즈 운하 (매우 좁음)
     {"path": [[32.55, 31.25], [32.5, 30.6], [32.35, 29.95]],
      "lon_jitter": (-0.03, 0.03), "lat_jitter": (-0.03, 0.03), "name_prefix": "SUEZ CANAL"},
-    # 지중해 (이탈리아/그리스 남쪽 먼바다 경로)
     {"path": [[30.0, 33.0], [20.0, 34.5], [10.0, 36.0], [0.0, 36.5], [-5.5, 36.0]],
      "lon_jitter": (-0.5, 0.5), "lat_jitter": (-0.4, 0.4), "name_prefix": "MEDITERRANEAN"},
-    # 대서양 횡단 (완전 대양이라 편차 여유 있음)
     {"path": [[-6.0, 36.0], [-20.0, 36.0], [-40.0, 38.0], [-60.0, 39.0], [-73.5, 40.3]],
      "lon_jitter": (-1.5, 1.5), "lat_jitter": (-1.2, 1.2), "name_prefix": "ATLANTIC"},
-    # 미 동해안 (해안선 동쪽=바다 방향으로만 편차)
     {"path": [[-79.5, 25.0], [-78.0, 30.0], [-75.5, 35.0], [-73.0, 40.0], [-70.5, 42.5]],
      "lon_jitter": (0.2, 0.8), "lat_jitter": (-0.3, 0.3), "name_prefix": "US EAST COAST"},
-    # 미 서해안 (해안선 서쪽=바다 방향으로만 편차)
     {"path": [[-117.5, 32.7], [-119.5, 34.5], [-121.5, 37.0], [-123.5, 40.0], [-124.5, 44.0], [-124.5, 47.5]],
      "lon_jitter": (-0.8, -0.2), "lat_jitter": (-0.3, 0.3), "name_prefix": "US WEST COAST"},
-    # 페르시아만 (좁은 만, 중앙 항로)
     {"path": [[56.3, 26.6], [55.0, 26.0], [53.5, 25.5], [52.0, 25.3]],
      "lon_jitter": (-0.15, 0.15), "lat_jitter": (-0.1, 0.1), "name_prefix": "PERSIAN GULF"},
-    # 대한해협 (한국/일본 사이 먼바다 중앙)
     {"path": [[129.5, 34.8], [129.8, 34.3], [130.2, 33.8]],
      "lon_jitter": (-0.15, 0.15), "lat_jitter": (-0.1, 0.1), "name_prefix": "KOREA STRAIT"},
 ]
 
 DOMESTIC_SHIPPING_LANES = [
-    # 서해(황해) - 인천~군산~목포, 해안선보다 서쪽(먼바다)로만 편차
     {"path": [[125.3, 37.2], [125.1, 36.3], [125.3, 35.4], [125.6, 34.7]],
      "lon_jitter": (-0.3, 0.1), "lat_jitter": (-0.2, 0.2), "name_prefix": "WEST SEA"},
-    # 남해 - 목포~여수~광양~부산, 해안선보다 남쪽(먼바다)로만 편차
     {"path": [[126.3, 34.5], [127.0, 34.35], [127.7, 34.45], [128.5, 34.65], [129.05, 34.85]],
      "lon_jitter": (-0.2, 0.2), "lat_jitter": (-0.25, -0.02), "name_prefix": "SOUTH SEA"},
-    # 동해 - 부산~울산~동해~속초, 해안선보다 동쪽(먼바다)로만 편차
     {"path": [[129.4, 35.05], [129.7, 35.85], [129.6, 36.9], [129.35, 37.6], [129.15, 38.25]],
      "lon_jitter": (0.05, 0.4), "lat_jitter": (-0.25, 0.25), "name_prefix": "EAST SEA"},
 ]
 
 def _generate_vessels_along_lanes(lanes, num_vessels, id_start, ship_names, flag_choices):
-    """항로(waypoint) 위에서만 선박을 생성 - 육지에 찍히지 않도록 경로 기반 생성"""
     vessels = []
     vessel_types = ["Container", "Bulk Carrier", "Tanker", "General Cargo", "RoRo", "Multipurpose"]
     vessel_id = id_start
@@ -771,23 +680,17 @@ def _generate_vessels_along_lanes(lanes, num_vessels, id_start, ship_names, flag
     return vessels
 
 def generate_realistic_ais_vessels(num_vessels=150):
-    """
-    MarineTraffic 스타일의 실제 AIS 선박 데이터 생성 (v4.6 디자인)
-    실제 해상 항로(waypoint)를 따라서만 생성 - 육지에 찍히는 오류 방지
-    """
     ship_names = ["Ever Given", "MSC Gulsun", "COSCO", "Maersk", "CMA CGM", "Evergreen",
                   "ONE", "Hapag", "HMM", "Yang Ming", "ZIM", "Pacific", "Atlantic", "Indian"]
     flags = ["Panama", "Liberia", "Marshall Islands", "Hong Kong", "Singapore"]
     return _generate_vessels_along_lanes(GLOBAL_SHIPPING_LANES, num_vessels, 9, ship_names, flags)
 
 def generate_realistic_ais_vessels_domestic(num_vessels=60):
-    """국내 연안 항로용 실제 AIS 스타일 선박 데이터 생성 - 실제 해상 항로만 사용 (v4.6 디자인)"""
     ship_names = ["HMM", "SM Line", "Pan Ocean", "KMTC", "Sinokor", "Heung-A", "Dong Young"]
     flags = ["South Korea"]
     return _generate_vessels_along_lanes(DOMESTIC_SHIPPING_LANES, num_vessels, 4, ship_names, flags)
 
 def render_ais_vessels_on_map(m, vessels):
-    """실제 AIS 스타일 삼각형 벡터 마커 렌더링 (v4.6 디자인)"""
     for vessel in vessels:
         lat = vessel["lat"]
         lon = vessel["lon"]
@@ -803,7 +706,7 @@ def render_ais_vessels_on_map(m, vessels):
 
         popup_html = f"""
         <div style="font-family: Arial; font-size: 11px; width: 220px; padding: 8px;">
-            <b style="color: {vessel_color}; font-size: 12px;">⛴ {name}</b>
+            <b style="color: {vessel_color}; font-size: 12px;">{name}</b>
             <hr style="margin: 4px 0; border: none; border-top: 1px solid #ccc;">
             <table style="width: 100%;">
                 <tr><td><b>MMSI:</b></td><td>{mmsi}</td></tr>
@@ -824,38 +727,40 @@ def render_ais_vessels_on_map(m, vessels):
             radius=5,
             rotation=heading,
             popup=folium.Popup(popup_html, max_width=250),
-            tooltip=f"🚢 {name} ({speed:.0f}kn)",
+            tooltip=f"{name} ({speed:.0f}kn)",
             color=vessel_color,
             weight=1,
             fill_opacity=0.9
         ).add_to(m)
 
 def render_risk_zones_circle(m, selected_risks):
-    """지정학적 리스크를 반투명 Circle로 표시 (v4.6 디자인, v7.0 데이터 유지)"""
     for risk_name, risk_info in GEOPOLITICAL_RISKS.items():
-        if risk_name in selected_risks:
-            coords = risk_info["coords"]
-            center_lat = sum(c[0] for c in coords) / len(coords)
-            center_lon = sum(c[1] for c in coords) / len(coords)
+        coords = risk_info["coords"]
+        center_lat = sum(c[0] for c in coords) / len(coords)
+        center_lon = sum(c[1] for c in coords) / len(coords)
 
-            risk_level = risk_info["risk_level"]
-            color = "#FF4444" if risk_level == "High" else "#FFAA00"
-            radius_m = 350000 if risk_level == "High" else 250000
+        risk_level = risk_info["risk_level"]
+        radius_m = 350000 if risk_level == "High" else 250000
+        is_selected = risk_name in selected_risks
 
-            folium.Circle(
-                location=[center_lat, center_lon],
-                radius=radius_m,
-                color=color,
-                fill=True,
-                fillColor=color,
-                fillOpacity=0.12,
-                weight=2,
-                popup=f"<b>{risk_name}</b><br>Level: {risk_level}<br>{risk_info['description']}",
-                tooltip=f"⚠️ {risk_name}"
-            ).add_to(m)
+        color = "#FF0000"
+        fill_opacity = 0.28 if is_selected else 0.12
+        weight = 2 if is_selected else 1
+        status_text = "선택됨 - 비용에 반영중" if is_selected else "선택 시 운임/기간에 자동 반영됩니다"
+
+        folium.Circle(
+            location=[center_lat, center_lon],
+            radius=radius_m,
+            color=color,
+            fill=True,
+            fillColor=color,
+            fillOpacity=fill_opacity,
+            weight=weight,
+            popup=f"<b>{risk_name}</b><br>Level: {risk_level}<br>{risk_info['description']}<br><i>{status_text}</i>",
+            tooltip=f"{risk_name}" + (" (적용중)" if is_selected else "")
+        ).add_to(m)
 
 def bar_chart_horizontal_labels(series, category_name="Category", value_name="Count"):
-    """카테고리 라벨을 가로(0도)로 고정한 막대그래프 (Altair 기반)"""
     df = series.reset_index()
     df.columns = [category_name, value_name]
     chart = (
@@ -871,27 +776,26 @@ def bar_chart_horizontal_labels(series, category_name="Category", value_name="Co
     st.altair_chart(chart, use_container_width=True)
 
 def render_ais_fleet_statistics(vessels, coverage_label="Global"):
-    """실시간 AIS 플릿 통계 렌더링 - 네이티브 차트 사용 (v4.6 디자인)"""
-    st.subheader("📊 Real-time AIS Fleet Statistics")
+    st.subheader("Real-time AIS Fleet Statistics")
 
     vessel_df = pd.DataFrame(vessels)
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
-        st.metric("🚢 Total Vessels", len(vessels))
+        st.metric("Total Vessels", len(vessels))
 
     with col2:
-        st.metric("⚡ Avg Speed", f"{vessel_df['speed'].mean():.1f} kn")
+        st.metric("Avg Speed", f"{vessel_df['speed'].mean():.1f} kn")
 
     with col3:
-        st.metric("🏎️ Max Speed", f"{vessel_df['speed'].max():.1f} kn")
+        st.metric("Max Speed", f"{vessel_df['speed'].max():.1f} kn")
 
     with col4:
-        st.metric("📦 Types", vessel_df['type'].nunique())
+        st.metric("Types", vessel_df['type'].nunique())
 
     with col5:
-        st.metric("🌍 Coverage", coverage_label)
+        st.metric("Coverage", coverage_label)
 
     chart_col1, chart_col2 = st.columns(2)
 
@@ -914,7 +818,6 @@ def render_ais_fleet_statistics(vessels, coverage_label="Global"):
         bar_chart_horizontal_labels(pd.Series(speed_ranges).value_counts(), "Speed Range", "Count")
 
 def render_simulation_charts(sim_result):
-    """시뮬레이션 결과 분포 - 네이티브 line_chart 사용 (v4.6 디자인)"""
     col_chart1, col_chart2, col_chart3 = st.columns(3)
 
     with col_chart1:
@@ -929,74 +832,68 @@ def render_simulation_charts(sim_result):
         st.write("**Risk Distribution**")
         st.line_chart(pd.DataFrame({"Risk": sorted(sim_result['risks'])[:100]}))
 
-# =========================================================================
-# HELPER FUNCTIONS - MULTIMODAL ROUTES / STRATEGIES / SIMULATION (v7.0 기능 유지)
-# =========================================================================
-
 def generate_multimodal_routes_domestic(route_dist):
-    """국내 복합운송 조합 생성"""
     routes = {
         "FULL_AIR": {
             "name": "Full Air",
             "modes": [{"type": "AIR", "percentage": 100}],
             "description": "항공 직배",
             "co2": 1.8 * (route_dist / 1000),
-            "icon": "✈️"
+            "icon": ""
         },
         "FULL_ROAD": {
             "name": "Full Road",
             "modes": [{"type": "ROAD", "percentage": 100}],
             "description": "도로 직배",
             "co2": 1.0 * (route_dist / 1000),
-            "icon": "🚚"
+            "icon": ""
         },
         "RAIL_DOMINANT": {
             "name": "Rail + Road",
             "modes": [{"type": "RAIL", "percentage": 70}, {"type": "ROAD", "percentage": 30}],
             "description": "철도 + 도로 복합",
             "co2": (0.5 * 0.7 + 1.0 * 0.3) * (route_dist / 1000),
-            "icon": "🚂"
+            "icon": ""
         },
         "AIR_ROAD": {
             "name": "Air + Road",
             "modes": [{"type": "AIR", "percentage": 50}, {"type": "ROAD", "percentage": 50}],
             "description": "항공 + 도로 복합",
             "co2": (1.8 * 0.5 + 1.0 * 0.5) * (route_dist / 1000),
-            "icon": "🚁"
+            "icon": ""
         },
     }
     return routes
 
 def generate_multimodal_routes_international(route_dist):
-    """국제 복합운송 조합 생성"""
     routes = {
         "FULL_SEA": {
             "name": "Full Sea Route",
             "modes": [{"type": "SEA", "percentage": 100}],
             "description": "Port-to-Port direct sea freight",
             "co2": 0.2 * (route_dist / 1000),
-            "icon": "⛴️"
+            "icon": ""
         },
         "AIR_SEA": {
             "name": "Air + Sea (Fast)",
             "modes": [{"type": "AIR", "percentage": 30}, {"type": "SEA", "percentage": 70}],
             "description": "Air freight to hub + sea transport to destination",
             "co2": (1.8 * 0.3 + 0.2 * 0.7) * (route_dist / 1000),
-            "icon": "🚁"
+            "icon": ""
         },
         "SEA_RAIL": {
             "name": "Sea + Rail (Economic)",
             "modes": [{"type": "SEA", "percentage": 60}, {"type": "RAIL", "percentage": 40}],
             "description": "Sea to inland port + rail to destination",
             "co2": (0.2 * 0.6 + 0.5 * 0.4) * (route_dist / 1000),
-            "icon": "🚂"
+            "icon": ""
         },
         "SEA_ROAD": {
             "name": "Sea + Road (Flexible)",
             "modes": [{"type": "SEA", "percentage": 75}, {"type": "ROAD", "percentage": 25}],
             "description": "Sea to port + road to final destination",
             "co2": (0.2 * 0.75 + 1.0 * 0.25) * (route_dist / 1000),
-            "icon": "🚚"
+            "icon": ""
         },
     }
     return routes
@@ -1045,7 +942,6 @@ def _strategy_text(route_type, strat_key, field):
     return STRATEGY_TEXTS.get(lang, STRATEGY_TEXTS["ko"])[route_type][strat_key][field]
 
 def generate_default_strategies_domestic(origin, destination, route_dist, cargo_type, dangerous_goods, vehicle_speed):
-    """국내운송 전략"""
     rt = "domestic"
     return {
         "STRATEGY_A": {
@@ -1084,7 +980,6 @@ def generate_default_strategies_domestic(origin, destination, route_dist, cargo_
     }
 
 def generate_default_strategies_international(origin, destination, route_dist, cargo_type, dangerous_goods, vessel_speed):
-    """국제운송 전략"""
     rt = "international"
     return {
         "STRATEGY_A": {
@@ -1123,7 +1018,6 @@ def generate_default_strategies_international(origin, destination, route_dist, c
     }
 
 def run_scenario_simulation(strategy, route_distance, cargo_weight, containers_40, containers_20, dangerous_goods, events_severity):
-    """몬테카를로 시뮬레이션"""
     iters = 1000
 
     base_cost = 2000 + (cargo_weight * 0.15 if cargo_weight else 0) + \
@@ -1159,12 +1053,7 @@ def run_scenario_simulation(strategy, route_distance, cargo_weight, containers_4
         "risk_std": float(np.std(risks))
     }
 
-# =========================================================================
-# v9.0 신규 - 실데이터 연동 (AIS / 환율 / 항만혼잡 / 기상청 태풍)
-# =========================================================================
-
 def fetch_real_ais_vessels(latmin, latmax, lonmin, lonmax, username):
-    """AISHub 실시간 AIS 데이터 조회. 키가 없거나 실패하면 None 반환 (호출부에서 시뮬레이션 데이터로 폴백)."""
     if not username:
         return None
     try:
@@ -1182,7 +1071,7 @@ def fetch_real_ais_vessels(latmin, latmax, lonmin, lonmax, username):
             vessels.append({
                 "mmsi": row.get("MMSI", 0),
                 "name": row.get("NAME") or f"Vessel {row.get('MMSI', '?')}",
-                "type": "Container",  # AISHub 무료 티어는 선종 코드가 별도 매핑 필요 - 단순화
+                "type": "Container",
                 "lat": float(row.get("LATITUDE", 0) or 0),
                 "lon": float(row.get("LONGITUDE", 0) or 0),
                 "heading": float(row.get("COG", row.get("HEADING", 0)) or 0),
@@ -1196,7 +1085,6 @@ def fetch_real_ais_vessels(latmin, latmax, lonmin, lonmax, username):
         return None
 
 def fetch_exchange_rates(base="USD", targets=("KRW", "EUR", "JPY", "CNY")):
-    """Frankfurter 무료 환율 API (키 불필요). 실패 시 근사 고정값으로 폴백."""
     fallback = {"KRW": 1380.0, "EUR": 0.92, "JPY": 156.0, "CNY": 7.25}
     try:
         url = "https://api.frankfurter.app/latest"
@@ -1227,21 +1115,16 @@ def format_currency(amount_usd, target):
     return f"{symbol}{converted:,.2f}"
 
 def fetch_port_congestion_index(port_name):
-    """
-    실시간 항만 혼잡도. 공개 무료 API가 마땅치 않아 포트명 기반 안정적 추정치로 폴백.
-    실서비스 전환 시 IHS Markit Port Congestion Index, MarineTraffic Congestion API 등으로 교체 권장.
-    """
     if port_name in st.session_state.port_congestion_cache:
         return st.session_state.port_congestion_cache[port_name]
     h = int(hashlib.md5(port_name.encode()).hexdigest(), 16)
-    congestion_score = 30 + (h % 60)  # 30~89, 포트명 고정 시드라 새로고침해도 일관됨
+    congestion_score = 30 + (h % 60)
     waiting_days = round(0.5 + (congestion_score / 100) * 4, 1)
     result = {"congestion_score": congestion_score, "waiting_days": waiting_days, "source": "Estimated (demo)"}
     st.session_state.port_congestion_cache[port_name] = result
     return result
 
 def fetch_typhoon_paths(api_key):
-    """기상청(공공데이터포털) 태풍정보 API. 키가 없거나 호출 실패 시 빈 리스트 반환."""
     if not api_key:
         return []
     try:
@@ -1275,8 +1158,8 @@ def render_typhoon_paths_on_map(m, typhoons):
     for ty in typhoons:
         folium.Marker(
             location=[ty["lat"], ty["lon"]],
-            popup=f"🌀 태풍 {ty['name']}<br>풍속: {ty['wind_speed']}",
-            tooltip=f"🌀 {ty['name']}",
+            popup=f"태풍 {ty['name']}<br>풍속: {ty['wind_speed']}",
+            tooltip=f"{ty['name']}",
             icon=folium.Icon(color="darkred", icon="bolt", prefix="fa"),
         ).add_to(m)
         folium.Circle(
@@ -1284,12 +1167,7 @@ def render_typhoon_paths_on_map(m, typhoons):
             radius=200000, color="#8B0000", fill=True, fillColor="#8B0000", fillOpacity=0.15, weight=1,
         ).add_to(m)
 
-# =========================================================================
-# v9.0 신규 - 지도 구간 확대 & 렌더링 유틸
-# =========================================================================
-
 def get_map_view_for_leg(leg_selection, ordered_names, coords_lookup, default_center, default_zoom):
-    """선택된 구간(leg)에 따라 지도 중심 좌표/줌 레벨을 계산 (구간 확대 기능)."""
     if leg_selection == "전체 경로" or "→" not in str(leg_selection):
         return default_center, default_zoom
     a_name, b_name = [s.strip() for s in leg_selection.split("→")]
@@ -1311,16 +1189,11 @@ def get_map_view_for_leg(leg_selection, ordered_names, coords_lookup, default_ce
     return center, zoom
 
 def render_folium_map(m, height, map_key):
-    """streamlit-folium이 있으면 클릭 인터랙션까지 지원, 없으면 정적 HTML로 렌더링."""
     if ST_FOLIUM_AVAILABLE:
         return st_folium(m, height=height, use_container_width=True, key=map_key,
                           returned_objects=["last_object_clicked_popup"])
     st.components.v1.html(m._repr_html_(), height=height)
     return None
-
-# =========================================================================
-# v9.0 신규 - AI 어시스턴트 (Gemini)
-# =========================================================================
 
 def get_gemini_model(api_key):
     if not GEMINI_AVAILABLE or not api_key:
@@ -1352,10 +1225,6 @@ def generate_ai_risk_briefing(news_items, api_key):
     result = ask_gemini(prompt, api_key)
     return result or "Gemini API 키가 설정되지 않았거나 호출에 실패했습니다. 사이드바 '전역 설정'에서 API 키를 확인해주세요."
 
-# =========================================================================
-# v9.0 신규 - 리스크/비용 계산기
-# =========================================================================
-
 def calculate_customs_clearance_days(incoterms, cargo_type, dangerous_goods):
     base = INCOTERMS_CLEARANCE_DAYS.get(incoterms, {"export_days": 2, "import_days": 4, "note": ""})
     extra = CARGO_CLEARANCE_EXTRA_DAYS.get(cargo_type, 0)
@@ -1366,11 +1235,9 @@ def calculate_customs_clearance_days(incoterms, cargo_type, dangerous_goods):
             "extra_days": extra, "total_days": total, "note": base["note"]}
 
 def calculate_cbam_cost(co2_tons, carbon_price_eur=EU_CARBON_PRICE_EUR_PER_TON):
-    """탄소국경조정제도(CBAM) 근사 비용 (EU 역내 반입 화물에 한해 참고용)"""
     return co2_tons * carbon_price_eur
 
 def estimate_insurance_premium(cargo_value_usd, risk_score):
-    """화물가액 + 리스크 스코어(0~100) 기반 개산 보험료. 기본요율 0.15% + 리스크 가산 최대 1.35%p"""
     base_rate = 0.0015
     risk_rate = (risk_score / 100) * 0.0135
     rate = base_rate + risk_rate
@@ -1382,12 +1249,7 @@ def render_forwarder_reputation():
     })
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-# =========================================================================
-# v9.0 신규 - 리포트 내보내기 (PDF/Excel) & 공유 (이메일/Slack)
-# =========================================================================
-
 def _find_korean_font():
-    """OS별 한글 트루타입 폰트 자동 탐색 (Windows/맑은 고딕, macOS/AppleGothic, Linux/NanumGothic 등)"""
     candidates = [
         "C:\\Windows\\Fonts\\malgun.ttf",
         "C:\\Windows\\Fonts\\malgunbd.ttf",
@@ -1404,11 +1266,7 @@ def _find_korean_font():
     return None
 
 def _pdf_write_line(pdf, text, font_name, style, size, height, kind="multicell"):
-    """
-    한 줄(cell/multi_cell)을 안전하게 출력. 폰트/문자폭 문제로 렌더링이 실패하면
-    자동으로 Helvetica + ASCII-safe 텍스트로 재시도해 절대 크래시하지 않도록 한다.
-    """
-    pdf.set_x(pdf.l_margin)  # 커서 위치를 항상 왼쪽 여백으로 강제 리셋 (폭 계산 오류 방지)
+    pdf.set_x(pdf.l_margin)
     try:
         pdf.set_font(font_name, style, size)
         if kind == "cell":
@@ -1419,7 +1277,6 @@ def _pdf_write_line(pdf, text, font_name, style, size, height, kind="multicell")
     except Exception:
         pass
 
-    # 폴백: Helvetica + latin-1 안전 치환 텍스트로 재시도
     pdf.set_x(pdf.l_margin)
     try:
         pdf.set_font("Helvetica", style, size)
@@ -1429,7 +1286,6 @@ def _pdf_write_line(pdf, text, font_name, style, size, height, kind="multicell")
         else:
             pdf.multi_cell(0, height, safe_text)
     except Exception:
-        # 그래도 실패하면 해당 줄만 건너뛴다 (전체 리포트 생성은 계속 진행)
         pdf.set_x(pdf.l_margin)
         try:
             pdf.set_font("Helvetica", "", size)
@@ -1438,9 +1294,6 @@ def _pdf_write_line(pdf, text, font_name, style, size, height, kind="multicell")
             pass
 
 def generate_pdf_report(title, route_info: dict, strategy: dict, sim_result: dict):
-    """간단 요약 PDF 생성. fpdf2 미설치 시 None 반환.
-    시스템에서 한글 트루타입 폰트를 찾으면 자동 등록해 한글을 정상 표시하고,
-    폰트를 찾지 못하거나 특정 줄 렌더링이 실패해도 절대 예외를 던지지 않고 안전하게 폴백한다."""
     if not FPDF_AVAILABLE:
         return None
 
@@ -1453,7 +1306,7 @@ def generate_pdf_report(title, route_info: dict, strategy: dict, sim_result: dic
     if font_path:
         try:
             pdf.add_font("Korean", "", font_path)
-            pdf.add_font("Korean", "B", font_path)  # 별도 볼드 파일이 없으면 동일 파일 재사용
+            pdf.add_font("Korean", "B", font_path)
             font_name = "Korean"
         except Exception:
             font_name = "Helvetica"
@@ -1492,7 +1345,6 @@ def generate_pdf_report(title, route_info: dict, strategy: dict, sim_result: dic
         return pdf.output(dest="S").encode("latin-1")
 
 def generate_excel_report(route_info: dict, strategy: dict, sim_result: dict):
-    """리포트를 엑셀(xlsx) 바이트로 생성. openpyxl/xlsxwriter가 둘 다 없으면 None 반환."""
     if not OPENPYXL_AVAILABLE and not XLSXWRITER_AVAILABLE:
         return None
 
@@ -1526,7 +1378,6 @@ def post_to_slack(webhook_url, message):
         return False, f"Slack 전송 오류: {str(e)[:100]}"
 
 def render_report_and_share_section(title, route_info: dict, strategy: dict, sim_result: dict, key_prefix=""):
-    """PDF/Excel 내보내기 + 이메일(mailto)/Slack 공유 UI"""
     with st.expander(t("report_title")):
         col_a, col_b = st.columns(2)
 
@@ -1564,10 +1415,6 @@ def render_report_and_share_section(title, route_info: dict, strategy: dict, sim
             ok, msg = post_to_slack(st.session_state.slack_webhook, slack_msg)
             (st.success if ok else st.warning)(msg)
 
-# =========================================================================
-# v9.0 신규 - 테마 / 컴팩트(모바일) 모드 / 전역 설정 사이드바
-# =========================================================================
-
 def apply_theme_css():
     if st.session_state.dark_mode:
         st.markdown("""
@@ -1578,14 +1425,9 @@ def apply_theme_css():
         """, unsafe_allow_html=True)
 
 def cols_adaptive(n):
-    """컴팩트(모바일) 모드에서는 컬럼 대신 세로로 쌓이는 컨테이너를 반환"""
     if st.session_state.compact_mode:
         return [st.container() for _ in range(n)]
     return st.columns(n)
-
-# =========================================================================
-# v9.1 신규 - SQLite 기반 영속 저장 (즐겨찾기 / 시뮬레이션 이력 / 진행중 배송)
-# =========================================================================
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "atlas_ai_data.db") if "__file__" in globals() else "atlas_ai_data.db"
 
@@ -1678,10 +1520,6 @@ def db_delete_shipment(shipment_id):
     conn.commit()
     conn.close()
 
-# =========================================================================
-# v9.1 신규 - 즐겨찾기 (DB 영속 버전, 브라우저 새로고침해도 유지됨)
-# =========================================================================
-
 def render_favorites_manager(current_route: dict, key_prefix=""):
     with st.expander(t("fav_title")):
         default_name = f"{current_route.get('origin', '')} → {current_route.get('destination', '')}"
@@ -1705,11 +1543,6 @@ def render_favorites_manager(current_route: dict, key_prefix=""):
         else:
             st.caption(t("fav_empty"))
 
-# =========================================================================
-# v9.1 신규 - HS코드 관세 계산기 & TCO(총소요비용)
-# =========================================================================
-
-# 자동차 부품/물류 관련 대표 HS코드 근사 관세율 테이블 (FTA 미적용 기본세율 기준, 참고용)
 HS_CODE_TARIFF_TABLE = {
     "8708": {"desc": "자동차 부품", "rate": 8.0},
     "8703": {"desc": "승용차", "rate": 8.0},
@@ -1722,10 +1555,6 @@ HS_CODE_TARIFF_TABLE = {
 }
 
 def fetch_customs_tariff_rate(hs_code, api_key):
-    """
-    관세청 unipass API 실호출 시도. 키가 없거나 실패하면 내장 근사 테이블로 폴백.
-    실제 서비스 전환 시 https://unipass.customs.go.kr 오픈API 신청 및 정확한 엔드포인트/파라미터 확인 필요.
-    """
     hs4 = (hs_code or "")[:4]
     if api_key:
         try:
@@ -1739,15 +1568,9 @@ def fetch_customs_tariff_rate(hs_code, api_key):
     return {"rate": fallback["rate"], "desc": fallback["desc"], "source": "Estimated (demo table)"}
 
 def calculate_tco(freight_cost, customs_duty, cbam_cost, insurance_premium):
-    """총소요비용(Total Cost of Ownership) 합산"""
     return freight_cost + customs_duty + cbam_cost + insurance_premium
 
-# =========================================================================
-# v9.1 신규 - 전략 A/B/C 동시 비교 & 경로 비교
-# =========================================================================
-
 def render_strategy_comparison(strategies, route_distance, cargo_weight, container_40, container_20, dangerous_goods, key_prefix=""):
-    """전략 A/B/C를 동시에 시뮬레이션해서 비용/시간/리스크를 나란히 비교"""
     with st.expander(t("compare_strategy_title")):
         if st.button(t("compare_strategy_btn"), key=f"{key_prefix}_compare_btn"):
             rows = []
@@ -1778,7 +1601,6 @@ def render_strategy_comparison(strategies, route_distance, cargo_weight, contain
             st.altair_chart(chart, use_container_width=False)
 
 def render_route_comparison(coords_lookup, origin_name, key_prefix, is_domestic):
-    """현재 출발지 기준으로 다른 목적지 하나를 더 골라 거리/전략을 나란히 비교"""
     with st.expander(t("compare_route_title")):
         other_options = [n for n in coords_lookup.keys() if n != origin_name]
         fmt = display_terminal_name if is_domestic else (lambda x: x)
@@ -1799,12 +1621,7 @@ def render_route_comparison(coords_lookup, origin_name, key_prefix, is_domestic)
             st.dataframe(comp_df, use_container_width=True, hide_index=True)
             st.caption(f"* '{origin_name} → {compare_dest}' — estimated using the Balanced (B) strategy.")
 
-# =========================================================================
-# v9.1 신규 - 리스크 자동 알림 & 대안 경로(재라우팅) 제안
-# =========================================================================
-
 def suggest_alternative_strategy(strategies, current_key):
-    """현재 전략보다 리스크 스코어가 낮은 대안 전략을 제안"""
     current_risk = strategies.get(current_key, {}).get("risk_score", 100)
     candidates = [(k, v) for k, v in strategies.items() if k != current_key and v.get("risk_score", 100) < current_risk]
     if not candidates:
@@ -1813,30 +1630,24 @@ def suggest_alternative_strategy(strategies, current_key):
     return candidates[0]
 
 def check_and_alert_risk(sim_result, strategies, current_strategy_key, route_label, key_prefix=""):
-    """리스크 임계값 초과 시 경고 배너 + 대안 전략 제안 + (옵션) 자동 Slack 알림"""
     threshold = st.session_state.risk_alert_threshold
     if sim_result["risk_mean"] <= threshold:
         return
-    st.error(f"⚠️ 리스크 스코어({sim_result['risk_mean']:.0f})가 설정된 임계값({threshold})을 초과했습니다!")
+    st.error(f"리스크 스코어({sim_result['risk_mean']:.0f})가 설정된 임계값({threshold})을 초과했습니다!")
 
     alt = suggest_alternative_strategy(strategies, current_strategy_key)
     if alt:
         alt_key, alt_strat = alt
-        st.info(f"🔀 대안 제안: **{alt_strat.get('name', alt_key)}** (리스크 {alt_strat.get('risk_score', '-')}/100, "
+        st.info(f"대안 제안: **{alt_strat.get('name', alt_key)}** (리스크 {alt_strat.get('risk_score', '-')}/100, "
                 f"예상 {alt_strat.get('time_days', '-')}일, 비용 {alt_strat.get('cost_multiplier', 1.0):.2f}x)")
 
     if st.session_state.auto_slack_alert and st.session_state.slack_webhook:
-        msg = f"🚨 [ATLAS AI] {route_label} 리스크 경고: {sim_result['risk_mean']:.0f}/100 (임계값 {threshold})"
+        msg = f"[ATLAS AI] {route_label} 리스크 경고: {sim_result['risk_mean']:.0f}/100 (임계값 {threshold})"
         ok, _ = post_to_slack(st.session_state.slack_webhook, msg)
         if ok:
-            st.caption("📤 Slack으로 자동 알림을 전송했습니다.")
-
-# =========================================================================
-# v9.2 신규 - 운송 수락 판단 AI (카카오모빌리티 사례: 콜 수락 판단/수익 예측)
-# =========================================================================
+            st.caption("Slack으로 자동 알림을 전송했습니다.")
 
 def evaluate_shipment_decision(sim_result, quoted_price):
-    """견적가 대비 수익성 분석 - 운송요청(콜) 수락 여부 판단 지원"""
     if quoted_price <= 0:
         return None
     costs = sim_result["costs"]
@@ -1844,16 +1655,15 @@ def evaluate_shipment_decision(sim_result, quoted_price):
     margin = quoted_price - sim_result["cost_mean"]
     margin_rate = (margin / quoted_price * 100) if quoted_price else 0
     if profit_prob >= 70 and margin_rate >= 10:
-        recommendation, verdict = "✅ 수락 추천", "accept"
+        recommendation, verdict = "수락 추천", "accept"
     elif profit_prob >= 50:
-        recommendation, verdict = "⚠️ 조건부 수락 (모니터링 필요)", "caution"
+        recommendation, verdict = "조건부 수락 (모니터링 필요)", "caution"
     else:
-        recommendation, verdict = "❌ 비추천 (손실 가능성 높음)", "reject"
+        recommendation, verdict = "비추천 (손실 가능성 높음)", "reject"
     return {"profit_prob": profit_prob, "margin": margin, "margin_rate": margin_rate,
             "recommendation": recommendation, "verdict": verdict}
 
 def render_accept_reject_section(sim_result, key_prefix=""):
-    """운송인 관점의 콜(운송요청) 수락 판단 지원 UI"""
     with st.expander(t("accept_reject_title")):
         if not sim_result:
             st.caption(t("accept_reject_no_sim"))
@@ -1871,12 +1681,7 @@ def render_accept_reject_section(sim_result, key_prefix=""):
                 st.metric(t("accept_reject_verdict_label"), decision["recommendation"])
             st.caption(t("accept_reject_caption"))
 
-# =========================================================================
-# v9.2 신규 - 권역 이동(재배치) 추천 (카카오모빌리티 사례: 권역 이동 추천)
-# =========================================================================
-
 def recommend_repositioning(current_terminal, max_km=150):
-    """도착 터미널 기준, 혼잡도가 낮은 인근 터미널로의 재배치 추천"""
     if current_terminal not in DOMESTIC_TERMINALS:
         return None
     cur_coord = DOMESTIC_TERMINALS[current_terminal][:2]
@@ -1903,10 +1708,6 @@ def render_repositioning_section(destination_input):
                 dest=display_terminal_name(destination_input), name=display_terminal_name(name), dist=dist, score=score))
         else:
             st.caption(t("reposition_empty"))
-
-# =========================================================================
-# v9.2 신규 - 철도 vs 도로 사회·환경적 편익 비교 (한국철도공사 사례 ①)
-# =========================================================================
 
 def calculate_social_benefit_road_vs_rail(route_dist):
     road_co2 = TRANSPORT_MODES["ROAD"]["co2"] * (route_dist / 1000)
@@ -1937,12 +1738,7 @@ def render_social_benefit_section(route_dist):
             st.metric(t("social_benefit_congestion_label"), f"{sb['congestion_relief_km']:.0f} {t('social_benefit_congestion_unit')}")
         st.caption(t("social_benefit_caption"))
 
-# =========================================================================
-# v9.2 신규 - 철도 물류 플랫폼 (한국철도공사 사례 ②)
-# =========================================================================
-
 def fetch_freight_car_availability(terminal_name):
-    """빈 화차/열차 정보 - 실시간 API가 없어 터미널명 고정 시드 기반 안정적 추정치로 대체"""
     cache = st.session_state.setdefault("freight_car_cache", {})
     if terminal_name in cache:
         return cache[terminal_name]
@@ -1971,10 +1767,6 @@ def render_rail_logistics_platform():
             ktx_sim = {"cost_mean": max(50000.0, ktx_dist * 800), "time_mean": 0.3, "risk_mean": 15}
             db_save_active_shipment(f"KTX특송 {ktx_origin}→{ktx_dest}", "철도특송", ktx_origin, ktx_dest, "KTX 특송 (당일)", ktx_sim)
             st.success(t("ktx_success_msg").format(desc=ktx_desc or t("ktx_no_desc")))
-
-# =========================================================================
-# v9.2 신규 - 운행 패턴 분석 (카카오모빌리티 사례 ②: 암묵지 디지털 자산화)
-# =========================================================================
 
 def render_pattern_analysis():
     with st.expander(t("dashboard_pattern_title")):
@@ -2013,12 +1805,7 @@ def render_pattern_analysis():
         else:
             st.caption(t("pattern_ai_hint"))
 
-# =========================================================================
-# v9.2 신규 - 운송 지연 대응 & 공급망 가시성 (현대글로비스 사례)
-# =========================================================================
-
 def suggest_delay_buffer(sim_result):
-    """소요시간 변동성이 크면 리드타임 버퍼를 제안 (운송 지연 대응 지원)"""
     if not sim_result or not sim_result.get("time_mean"):
         return None
     variability = sim_result["time_std"] / sim_result["time_mean"]
@@ -2032,7 +1819,6 @@ def render_delay_buffer_warning(sim_result):
         st.warning(t("delay_buffer_warning").format(std=sim_result['time_std'], buf=buf))
 
 def render_supply_chain_visibility():
-    """진행중인 전체 화물의 목적지 분포 - 공급망 가시성"""
     shipments = db_load_active_shipments()
     if not shipments:
         return
@@ -2041,10 +1827,6 @@ def render_supply_chain_visibility():
         bar_chart_horizontal_labels(dest_counts, t("label_destination"), t("label_count"))
         type_counts = pd.Series([s["route_type"] for s in shipments]).value_counts()
         bar_chart_horizontal_labels(type_counts, t("label_route_type"), t("label_count"))
-
-# =========================================================================
-# v9.1 신규 - 홈 대시보드
-# =========================================================================
 
 def render_dashboard_tab():
     st.header(t("dashboard_header"))
@@ -2123,7 +1905,7 @@ def render_global_settings_sidebar():
     with st.sidebar:
         lang_display = {"ko": "한국어", "en": "English"}
         st.session_state.nav_language = st.radio(
-            "🌐 Language / 언어", options=["ko", "en"], format_func=lambda x: lang_display[x],
+            "Language / 언어", options=["ko", "en"], format_func=lambda x: lang_display[x],
             index=["ko", "en"].index(st.session_state.nav_language), horizontal=True, key="cfg_lang"
         )
 
@@ -2143,39 +1925,31 @@ def render_global_settings_sidebar():
             st.divider()
             currency_options = ["USD", "KRW", "EUR", "JPY", "CNY"]
             st.session_state.currency = st.selectbox(
-                "💱 표시 통화", currency_options, index=currency_options.index(st.session_state.currency), key="cfg_currency")
-            st.session_state.dark_mode = st.toggle("🌙 다크 모드", value=st.session_state.dark_mode, key="cfg_dark")
-            st.session_state.compact_mode = st.toggle("📱 컴팩트(모바일) 모드", value=st.session_state.compact_mode, key="cfg_compact")
+                "표시 통화", currency_options, index=currency_options.index(st.session_state.currency), key="cfg_currency")
+            st.session_state.dark_mode = st.toggle("다크 모드", value=st.session_state.dark_mode, key="cfg_dark")
+            st.session_state.compact_mode = st.toggle("컴팩트(모바일) 모드", value=st.session_state.compact_mode, key="cfg_compact")
 
             st.divider()
-            st.write("**🚨 리스크 자동 알림**")
+            st.write("**리스크 자동 알림**")
             st.session_state.risk_alert_threshold = st.slider(
                 "리스크 스코어 경고 임계값", min_value=0, max_value=100, value=st.session_state.risk_alert_threshold, key="cfg_risk_threshold")
             st.session_state.auto_slack_alert = st.toggle(
                 "임계값 초과 시 자동 Slack 알림", value=st.session_state.auto_slack_alert, key="cfg_auto_slack")
 
             if not ST_FOLIUM_AVAILABLE:
-                st.caption("💡 `pip install streamlit-folium` 설치 시 지도 클릭 인터랙션이 추가됩니다.")
+                st.caption("`pip install streamlit-folium` 설치 시 지도 클릭 인터랙션이 추가됩니다.")
             if not FPDF_AVAILABLE:
-                st.caption("💡 `pip install fpdf2` 설치 시 PDF 리포트 다운로드가 활성화됩니다.")
+                st.caption("`pip install fpdf2` 설치 시 PDF 리포트 다운로드가 활성화됩니다.")
             if not (OPENPYXL_AVAILABLE or XLSXWRITER_AVAILABLE):
-                st.caption("💡 `pip install openpyxl` 설치 시 Excel 리포트 다운로드가 활성화됩니다.")
+                st.caption("`pip install openpyxl` 설치 시 Excel 리포트 다운로드가 활성화됩니다.")
 
 apply_theme_css()
 render_global_settings_sidebar()
-
-# =========================================================================
-# MAIN TABS
-# =========================================================================
 
 tab0, tab1, tab2 = st.tabs([t("tab_dashboard"), t("tab_domestic"), t("tab_intl")])
 
 with tab0:
     render_dashboard_tab()
-
-# =========================================================================
-# TAB 1: DOMESTIC LOGISTICS
-# =========================================================================
 
 with tab1:
     st.header(t("domestic_header"))
@@ -2197,7 +1971,7 @@ with tab1:
         st.divider()
         st.write("**Cargo Details**")
 
-        is_bulk_cargo = st.checkbox("📊 Bulk Cargo", value=False, key="domestic_bulk")
+        is_bulk_cargo = st.checkbox("Bulk Cargo", value=False, key="domestic_bulk")
 
         if is_bulk_cargo:
             st.write("**Bulk Cargo Settings**")
@@ -2212,7 +1986,7 @@ with tab1:
             bulk_stowage = st.selectbox("Stowage", ["Special", "Ventilated", "Certified", "Standard"], key="domestic_bulk_stowage")
             bulk_quantity = st.number_input("Quantity (tons)", min_value=0.0, value=100.0, step=10.0, key="domestic_bulk_qty")
             bulk_volume = bulk_quantity / bulk_density if bulk_density > 0 else 0
-            st.write(f"📐 **Estimated Volume: {bulk_volume:.2f} m³**")
+            st.write(f"**Estimated Volume: {bulk_volume:.2f} m³**")
 
             cargo_weight = bulk_quantity
             container_40 = 0
@@ -2232,7 +2006,7 @@ with tab1:
         desired_arrival = st.date_input("Desired Arrival", value=date.today() + timedelta(days=3), key="domestic_arrival")
 
         st.divider()
-        st.write("**🌍 Route Selection**")
+        st.write("**Route Selection**")
 
         origin_input = st.selectbox("Origin (출발지)", list(DOMESTIC_TERMINALS.keys()),
                                      format_func=display_terminal_name, key="domestic_origin")
@@ -2245,23 +2019,22 @@ with tab1:
                                           format_func=display_terminal_name, key="domestic_destination")
 
         st.divider()
-        st.write("**🚚 Transportation Modes**")
-        use_air = st.checkbox("✈️ Air Transport", value=False, key="domestic_air")
-        use_road = st.checkbox("🚚 Road Transport", value=True, key="domestic_road")
-        use_rail = st.checkbox("🚂 Rail Transport", value=False, key="domestic_rail")
-        use_sea = st.checkbox("⛴️ Sea Transport", value=False, key="domestic_sea")
+        st.write("**Transportation Modes**")
+        use_air = st.checkbox("Air Transport", value=False, key="domestic_air")
+        use_road = st.checkbox("Road Transport", value=True, key="domestic_road")
+        use_rail = st.checkbox("Rail Transport", value=False, key="domestic_rail")
+        use_sea = st.checkbox("Sea Transport", value=False, key="domestic_sea")
 
         st.divider()
-        st.write("**⚙️ Settings**")
+        st.write("**Settings**")
         vehicle_speed = st.slider("Average Speed (km/h)", 40, 100, 80, key="domestic_speed")
         show_map_domestic = st.checkbox("Show Interactive Map", value=True, key="domestic_show_map")
 
-    # Get terminal coordinates
     origin_coords = DOMESTIC_TERMINALS[origin_input][:2]
     destination_coords = DOMESTIC_TERMINALS[destination_input][:2]
     transit_coords = [DOMESTIC_TERMINALS[tm][:2] for tm in transit_inputs] if transit_inputs else []
 
-    total_distance = haversine_km(origin_coords[0], origin_coords[1], 
+    total_distance = haversine_km(origin_coords[0], origin_coords[1],
                                   transit_coords[0][0] if transit_coords else destination_coords[0],
                                   transit_coords[0][1] if transit_coords else destination_coords[1])
 
@@ -2276,7 +2049,6 @@ with tab1:
     ordered_names_domestic = [origin_input] + transit_inputs + [destination_input]
     domestic_coords_lookup = {k: v[:2] for k, v in DOMESTIC_TERMINALS.items()}
 
-    # 실AIS 연동 시도 (AISHub 키가 있으면 실데이터, 없으면 시뮬레이션 유지)
     if st.session_state.ais_vessels_domestic is None:
         real_vessels = None
         if st.session_state.aishub_username:
@@ -2288,19 +2060,17 @@ with tab1:
         st.session_state.ais_vessels_domestic = real_vessels or generate_realistic_ais_vessels_domestic(60)
         st.session_state.ais_source_domestic = "AISHub (실데이터)" if real_vessels else "시뮬레이션"
 
-    # 기상청 태풍 정보 (키 있을 때만)
     typhoons_domestic = fetch_typhoon_paths(st.session_state.kma_api_key) if st.session_state.kma_api_key else []
 
-    # Display Map
     if show_map_domestic:
-        st.subheader("🗺️ Real-time Domestic Logistics Map")
+        st.subheader("Real-time Domestic Logistics Map")
         vessel_source_label = st.session_state.get("ais_source_domestic", "시뮬레이션")
-        st.markdown(f"**🚢 Active Vessels: {len(st.session_state.ais_vessels_domestic)}+ ({vessel_source_label}) | 📍 Terminals: 22 | ⚠️ Risk Zones | ━━ Routes**")
+        st.markdown(f"**Active Vessels: {len(st.session_state.ais_vessels_domestic)}+ ({vessel_source_label}) | Terminals: 22 | Risk Zones | ━━ Routes**")
 
         leg_options_domestic = ["전체 경로"] + [f"{ordered_names_domestic[i]} → {ordered_names_domestic[i+1]}"
                                                   for i in range(len(ordered_names_domestic) - 1)]
         st.session_state.map_zoom_leg_domestic = st.selectbox(
-            "🔍 구간 확대", leg_options_domestic, key="domestic_leg_zoom",
+            "구간 확대", leg_options_domestic, key="domestic_leg_zoom",
             index=leg_options_domestic.index(st.session_state.map_zoom_leg_domestic)
             if st.session_state.map_zoom_leg_domestic in leg_options_domestic else 0
         )
@@ -2319,7 +2089,6 @@ with tab1:
         MiniMap().add_to(m)
         Fullscreen().add_to(m)
 
-        # Base Route (실선) - 경유지 포함
         route_waypoints = [[DOMESTIC_TERMINALS[tm][1], DOMESTIC_TERMINALS[tm][0]] for tm in transit_inputs]
         base_route = [[origin_coords[1], origin_coords[0]]] + route_waypoints + [[destination_coords[1], destination_coords[0]]]
 
@@ -2329,11 +2098,10 @@ with tab1:
             weight=3,
             opacity=0.8,
             popup="Base Route",
-            tooltip="📍 Base Route",
+            tooltip="Base Route",
             dash_array=None
         ).add_to(m)
 
-        # AI Route (점선)
         ai_route = create_ai_route_with_waypoints(origin_coords,
                                                   [DOMESTIC_TERMINALS[tm][:2] for tm in transit_inputs],
                                                   destination_coords,
@@ -2345,11 +2113,10 @@ with tab1:
             weight=3,
             opacity=0.7,
             popup="AI Optimized Route",
-            tooltip="🤖 AI Route (Optimized)",
+            tooltip="AI Route (Optimized)",
             dash_array="5, 5"
         ).add_to(m)
 
-        # Terminals - v4.6 스타일 (얇고 작은 마커)
         for term_name, term_info in DOMESTIC_TERMINALS.items():
             lon, lat, term_type, category = term_info
 
@@ -2380,47 +2147,44 @@ with tab1:
         render_folium_map(m, height=750, map_key="domestic_map")
 
         if typhoons_domestic:
-            st.warning(f"🌀 활성 태풍 {len(typhoons_domestic)}건 감지 - 해상 경로 리스크 참고")
+            st.warning(f"활성 태풍 {len(typhoons_domestic)}건 감지 - 해상 경로 리스크 참고")
         elif st.session_state.kma_api_key:
-            st.caption("🌀 현재 활성 태풍 정보 없음")
+            st.caption("현재 활성 태풍 정보 없음")
 
-        # 항만 혼잡도 (출발/도착 터미널이 항구인 경우)
         cong_col1, cong_col2 = cols_adaptive(2)
         with cong_col1:
             if DOMESTIC_TERMINALS[origin_input][2] == "Port":
                 cg = fetch_port_congestion_index(origin_input)
-                st.metric(f"🏗️ {origin_input} 혼잡도", f"{cg['congestion_score']}/100", delta=f"대기 {cg['waiting_days']}일")
+                st.metric(f"{origin_input} 혼잡도", f"{cg['congestion_score']}/100", delta=f"대기 {cg['waiting_days']}일")
         with cong_col2:
             if DOMESTIC_TERMINALS[destination_input][2] == "Port":
                 cg = fetch_port_congestion_index(destination_input)
-                st.metric(f"🏗️ {destination_input} 혼잡도", f"{cg['congestion_score']}/100", delta=f"대기 {cg['waiting_days']}일")
+                st.metric(f"{destination_input} 혼잡도", f"{cg['congestion_score']}/100", delta=f"대기 {cg['waiting_days']}일")
 
     render_ais_fleet_statistics(st.session_state.ais_vessels_domestic, coverage_label="Domestic")
 
-    # Fleet Statistics
-    st.subheader("📊 Fleet Statistics")
+    st.subheader("Fleet Statistics")
     col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
 
     with col_stat1:
-        st.metric("📍 Total Terminals", len(DOMESTIC_TERMINALS))
+        st.metric("Total Terminals", len(DOMESTIC_TERMINALS))
     with col_stat2:
-        st.metric("✈️ Airports", len([tm for tm in DOMESTIC_TERMINALS.values() if tm[2] == "Airport"]))
+        st.metric("Airports", len([tm for tm in DOMESTIC_TERMINALS.values() if tm[2] == "Airport"]))
     with col_stat3:
-        st.metric("🚢 Ports", len([tm for tm in DOMESTIC_TERMINALS.values() if tm[2] == "Port"]))
+        st.metric("Ports", len([tm for tm in DOMESTIC_TERMINALS.values() if tm[2] == "Port"]))
     with col_stat4:
-        st.metric("🚚 Terminals", len([tm for tm in DOMESTIC_TERMINALS.values() if tm[2] == "Terminal"]))
+        st.metric("Terminals", len([tm for tm in DOMESTIC_TERMINALS.values() if tm[2] == "Terminal"]))
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("📍 총거리", f"{total_distance:.0f} km")
+        st.metric("총거리", f"{total_distance:.0f} km")
     with col2:
         est_time = max(1, int(total_distance / vehicle_speed * 24))
-        st.metric("⏱️ 예상시간", f"{est_time}시간")
+        st.metric("⏱예상시간", f"{est_time}시간")
     with col3:
-        st.metric("📦 화물", f"{cargo_weight}톤")
+        st.metric("화물", f"{cargo_weight}톤")
 
-    # Multi-modal routes
-    st.subheader("📦 Multi-Modal Transportation Routes")
+    st.subheader("Multi-Modal Transportation Routes")
     multimodal_routes = generate_multimodal_routes_domestic(total_distance)
 
     cols = st.columns(len(multimodal_routes))
@@ -2439,8 +2203,7 @@ with tab1:
             st.write(f"**Est. Time**: {est_hours} hours")
             st.write(f"**Cost Index**: {total_cost_mult:.2f}x")
 
-    # Strategies
-    st.subheader("🎯 AI-Powered Strategy Recommendation")
+    st.subheader("AI-Powered Strategy Recommendation")
     strategies = generate_default_strategies_domestic(
         origin_input, destination_input, total_distance, cargo_type, dangerous_goods, vehicle_speed
     )
@@ -2452,9 +2215,9 @@ with tab1:
         strat = strategies[strat_key]
         st.markdown(f"### {strat.get('name', 'Strategy A')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱️ **Time**: {strat.get('time_days', 1)} days")
-        st.write(f"💰 **Cost**: {strat.get('cost_multiplier', 1.5):.2f}x")
-        st.write(f"⚠️ **Risk**: {strat.get('risk_score', 30)}/100")
+        st.write(f"⏱**Time**: {strat.get('time_days', 1)} days")
+        st.write(f"**Cost**: {strat.get('cost_multiplier', 1.5):.2f}x")
+        st.write(f"**Risk**: {strat.get('risk_score', 30)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
         if st.button("Select Strategy A", key="btn_domestic_a"):
             st.session_state.selected_strategy = strat_key
@@ -2465,9 +2228,9 @@ with tab1:
         strat = strategies.get(strat_key, {})
         st.markdown(f"### {strat.get('name', 'Strategy B')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱️ **Time**: {strat.get('time_days', 2)} days")
-        st.write(f"💰 **Cost**: {strat.get('cost_multiplier', 1.0):.2f}x")
-        st.write(f"⚠️ **Risk**: {strat.get('risk_score', 45)}/100")
+        st.write(f"⏱**Time**: {strat.get('time_days', 2)} days")
+        st.write(f"**Cost**: {strat.get('cost_multiplier', 1.0):.2f}x")
+        st.write(f"**Risk**: {strat.get('risk_score', 45)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
         if st.button("Select Strategy B", key="btn_domestic_b"):
             st.session_state.selected_strategy = strat_key
@@ -2478,9 +2241,9 @@ with tab1:
         strat = strategies.get(strat_key, {})
         st.markdown(f"### {strat.get('name', 'Strategy C')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱️ **Time**: {strat.get('time_days', 3)} days")
-        st.write(f"💰 **Cost**: {strat.get('cost_multiplier', 0.7):.2f}x")
-        st.write(f"⚠️ **Risk**: {strat.get('risk_score', 55)}/100")
+        st.write(f"⏱**Time**: {strat.get('time_days', 3)} days")
+        st.write(f"**Cost**: {strat.get('cost_multiplier', 0.7):.2f}x")
+        st.write(f"**Risk**: {strat.get('risk_score', 55)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
         if st.button("Select Strategy C", key="btn_domestic_c"):
             st.session_state.selected_strategy = strat_key
@@ -2492,11 +2255,10 @@ with tab1:
     render_rail_logistics_platform()
     render_repositioning_section(destination_input)
 
-    # Simulation
-    st.subheader("📊 Strategy Scenario Simulation")
+    st.subheader("Strategy Scenario Simulation")
     selected_strat = strategies.get(st.session_state.selected_strategy, strategies.get(list(strategies.keys())[1], {}))
 
-    if st.button("▶️ Run Detailed Simulation", key="sim_domestic_btn"):
+    if st.button("Run Detailed Simulation", key="sim_domestic_btn"):
         st.session_state.run_simulation = True
 
     sim_result = None
@@ -2510,36 +2272,34 @@ with tab1:
         cur = st.session_state.currency
         col_sim1, col_sim2, col_sim3 = st.columns(3)
         with col_sim1:
-            st.metric("💰 Expected Cost", format_currency(sim_result['cost_mean'], cur),
+            st.metric("Expected Cost", format_currency(sim_result['cost_mean'], cur),
                        delta=f"±{format_currency(sim_result['cost_std'], cur)}")
         with col_sim2:
-            st.metric("⏱️ Expected Delivery", f"{sim_result['time_mean']:.1f} days", delta=f"±{sim_result['time_std']:.1f} days")
+            st.metric("⏱Expected Delivery", f"{sim_result['time_mean']:.1f} days", delta=f"±{sim_result['time_std']:.1f} days")
         with col_sim3:
-            st.metric("⚠️ Risk Score", f"{sim_result['risk_mean']:.0f}/100", delta=f"±{sim_result['risk_std']:.0f}")
+            st.metric("Risk Score", f"{sim_result['risk_mean']:.0f}/100", delta=f"±{sim_result['risk_std']:.0f}")
 
         render_simulation_charts(sim_result)
         check_and_alert_risk(sim_result, strategies, st.session_state.selected_strategy, f"{origin_input} → {destination_input}", key_prefix="domestic")
 
-        if st.button("🚚 진행중인 배송으로 등록", key="domestic_register_shipment"):
+        if st.button("진행중인 배송으로 등록", key="domestic_register_shipment"):
             db_save_active_shipment(f"{origin_input} → {destination_input}", "국내운송", origin_input, destination_input,
                                      selected_strat.get("name", ""), sim_result)
             st.success("진행중인 배송으로 등록했습니다. 홈 대시보드에서 확인하세요.")
 
     render_accept_reject_section(sim_result, key_prefix="domestic")
 
-    # 리스크/비용 계산기
     with st.expander(t("calculator_title")):
         est_cargo_value = st.number_input("화물가액 (USD, 개산)", min_value=0.0, value=50000.0, step=1000.0, key="domestic_cargo_value")
         risk_for_insurance = selected_strat.get("risk_score", 45)
         premium, rate = estimate_insurance_premium(est_cargo_value, risk_for_insurance)
-        st.metric("🛡️ 개산 보험료", format_currency(premium, st.session_state.currency), delta=f"요율 {rate*100:.2f}%")
+        st.metric("개산 보험료", format_currency(premium, st.session_state.currency), delta=f"요율 {rate*100:.2f}%")
         st.caption("보험료 = 화물가액 × (기본요율 0.15% + 리스크스코어 비례 가산 최대 1.35%p)")
 
         st.divider()
         st.write(t("forwarder_header"))
         render_forwarder_reputation()
 
-    # 리포트 내보내기 및 공유
     domestic_route_info = {
         "구분": "국내운송", "출발지": origin_input, "도착지": destination_input,
         "경유지": ", ".join(transit_inputs) if transit_inputs else "없음",
@@ -2548,15 +2308,10 @@ with tab1:
     }
     render_report_and_share_section("ATLAS AI 국내운송 리포트", domestic_route_info, selected_strat, sim_result, key_prefix="domestic")
 
-    # 즐겨찾기
     render_favorites_manager({
         "type": "국내운송", "origin": origin_input, "destination": destination_input,
         "transit": ", ".join(transit_inputs), "distance_km": round(total_distance, 0),
     }, key_prefix="domestic")
-
-# =========================================================================
-# TAB 2: INTERNATIONAL LOGISTICS
-# =========================================================================
 
 with tab2:
     st.header(t("intl_header"))
@@ -2566,7 +2321,7 @@ with tab2:
     st.divider()
 
     if st.session_state.logistics_insights is None:
-        with st.spinner("🤖 AI가 물류 뉴스를 학습 중..."):
+        with st.spinner("AI가 물류 뉴스를 학습 중..."):
             news_items = fetch_logistics_news()
             st.session_state.logistics_insights = news_items
     else:
@@ -2601,7 +2356,7 @@ with tab2:
         st.divider()
         st.write("**Cargo Details**")
 
-        is_bulk_cargo_intl = st.checkbox("📊 Bulk Cargo", value=False, key="intl_bulk")
+        is_bulk_cargo_intl = st.checkbox("Bulk Cargo", value=False, key="intl_bulk")
 
         if is_bulk_cargo_intl:
             st.write("**Bulk Cargo Settings**")
@@ -2616,7 +2371,7 @@ with tab2:
             bulk_stowage_intl = st.selectbox("Stowage", ["Special", "Ventilated", "Certified", "Standard"], key="intl_bulk_stowage")
             bulk_quantity_intl = st.number_input("Quantity (tons)", min_value=0.0, value=100.0, step=10.0, key="intl_bulk_qty")
             bulk_volume_intl = bulk_quantity_intl / bulk_density_intl if bulk_density_intl > 0 else 0
-            st.write(f"📐 **Estimated Volume: {bulk_volume_intl:.2f} m³**")
+            st.write(f"**Estimated Volume: {bulk_volume_intl:.2f} m³**")
 
             cargo_weight_intl = bulk_quantity_intl
             container_40_intl = 0
@@ -2636,7 +2391,7 @@ with tab2:
         desired_arrival_intl = st.date_input("Desired Arrival", value=date.today() + timedelta(days=30), key="intl_arrival")
 
         st.divider()
-        st.write("**🌍 Route Selection**")
+        st.write("**Route Selection**")
         origin_intl = st.selectbox("Origin Port", list(PORTS_DB.keys()), index=0, key="intl_origin")
 
         transit_port_options = [p for p in PORTS_DB.keys() if p != origin_intl]
@@ -2645,7 +2400,7 @@ with tab2:
         destination_intl = st.selectbox("Destination Port", [p for p in PORTS_DB.keys() if p != origin_intl], key="intl_destination")
 
         st.divider()
-        st.write("**🚨 Geopolitical Risks**")
+        st.write("**Geopolitical Risks**")
         selected_risks = st.multiselect(
             "Select Affected Areas",
             list(GEOPOLITICAL_RISKS.keys()),
@@ -2653,18 +2408,17 @@ with tab2:
         )
 
         st.divider()
-        st.write("**🚚 Transportation Modes**")
-        use_air_intl = st.checkbox("✈️ Air Transport", value=False, key="intl_air")
-        use_sea_intl = st.checkbox("⛴️ Sea Transport", value=True, key="intl_sea")
-        use_rail_intl = st.checkbox("🚂 Rail Transport", value=False, key="intl_rail")
-        use_road_intl = st.checkbox("🚚 Road Transport", value=False, key="intl_road")
+        st.write("**Transportation Modes**")
+        use_air_intl = st.checkbox("Air Transport", value=False, key="intl_air")
+        use_sea_intl = st.checkbox("Sea Transport", value=True, key="intl_sea")
+        use_rail_intl = st.checkbox("Rail Transport", value=False, key="intl_rail")
+        use_road_intl = st.checkbox("Road Transport", value=False, key="intl_road")
 
         st.divider()
-        st.write("**⚙️ Settings**")
+        st.write("**Settings**")
         vessel_speed_intl = st.slider("Average Speed (knots)", 8, 25, 12, key="intl_speed")
         show_map_intl = st.checkbox("Show Interactive Map", value=True, key="intl_show_map")
 
-    # 경로 계산
     origin_coord_intl = PORTS_DB[origin_intl][:2]
     destination_coord_intl = PORTS_DB[destination_intl][:2]
     transit_port_coords = [PORTS_DB[p][:2] for p in transit_ports] if transit_ports else []
@@ -2697,19 +2451,17 @@ with tab2:
         st.session_state.ais_vessels_intl = real_vessels_intl or generate_realistic_ais_vessels(150)
         st.session_state.ais_source_intl = "AISHub (실데이터)" if real_vessels_intl else "시뮬레이션"
 
-    # 기상청 태풍 정보 (한반도 인근 항로에 한해 참고용)
     typhoons_intl = fetch_typhoon_paths(st.session_state.kma_api_key) if st.session_state.kma_api_key else []
 
-    # Display Map
     if show_map_intl:
-        st.subheader("🗺️ Real-time Global Maritime Map (MarineTraffic AIS)")
+        st.subheader("Real-time Global Maritime Map (MarineTraffic AIS)")
         vessel_source_label_intl = st.session_state.get("ais_source_intl", "시뮬레이션")
-        st.markdown(f"**🚢 Active Vessels: {len(st.session_state.ais_vessels_intl)}+ ({vessel_source_label_intl}) | 📍 Ports: 24 | ⚠️ Risk Zones | ━━ Routes**")
+        st.markdown(f"**Active Vessels: {len(st.session_state.ais_vessels_intl)}+ ({vessel_source_label_intl}) | Ports: 24 | Risk Zones | ━━ Routes**")
 
         leg_options_intl = ["전체 경로"] + [f"{ordered_names_intl[i]} → {ordered_names_intl[i+1]}"
                                               for i in range(len(ordered_names_intl) - 1)]
         st.session_state.map_zoom_leg_intl = st.selectbox(
-            "🔍 구간 확대", leg_options_intl, key="intl_leg_zoom",
+            "구간 확대", leg_options_intl, key="intl_leg_zoom",
             index=leg_options_intl.index(st.session_state.map_zoom_leg_intl)
             if st.session_state.map_zoom_leg_intl in leg_options_intl else 0
         )
@@ -2728,10 +2480,8 @@ with tab2:
         MiniMap().add_to(m_intl)
         Fullscreen().add_to(m_intl)
 
-        # 지정학적 리스크 - 반투명 Circle (v4.6 디자인)
         render_risk_zones_circle(m_intl, selected_risks)
 
-        # Base Route (실선) - 경유지 포함
         route_waypoints = [[PORTS_DB[p][1], PORTS_DB[p][0]] for p in transit_ports]
         base_route = [[origin_coord_intl[1], origin_coord_intl[0]]] + route_waypoints + [[destination_coord_intl[1], destination_coord_intl[0]]]
 
@@ -2741,11 +2491,10 @@ with tab2:
             weight=3,
             opacity=0.8,
             popup="Base Route",
-            tooltip="📍 Base Route",
+            tooltip="Base Route",
             dash_array=None
         ).add_to(m_intl)
 
-        # AI Route (점선)
         ai_route_intl = create_ai_route_with_waypoints(origin_coord_intl,
                                                        transit_port_coords,
                                                        destination_coord_intl,
@@ -2757,11 +2506,10 @@ with tab2:
             weight=3,
             opacity=0.7,
             popup="AI Optimized Route",
-            tooltip="🤖 AI Route (Optimized)",
+            tooltip="AI Route (Optimized)",
             dash_array="5, 5"
         ).add_to(m_intl)
 
-        # Ports - v4.6 스타일 (얇고 작은 마커)
         for port_name, port_info in PORTS_DB.items():
             lon, lat = port_info[:2]
 
@@ -2792,11 +2540,11 @@ with tab2:
         render_folium_map(m_intl, height=750, map_key="intl_map")
 
         if typhoons_intl:
-            st.warning(f"🌀 활성 태풍 {len(typhoons_intl)}건 감지 - 해상 경로 리스크 참고")
+            st.warning(f"활성 태풍 {len(typhoons_intl)}건 감지 - 해상 경로 리스크 참고")
 
         col_risk1, col_risk2 = st.columns([3, 1])
         with col_risk2:
-            st.subheader("🚨 리스크 분석")
+            st.subheader("리스크 분석")
             if selected_risks:
                 st.warning(f"**Risk Multiplier: {risk_multiplier:.2f}x**")
                 for risk in risk_desc:
@@ -2804,27 +2552,24 @@ with tab2:
             else:
                 st.success("No Selected Risks")
 
-        # 항만 혼잡도
         cong_col1, cong_col2 = cols_adaptive(2)
         with cong_col1:
             cg_o = fetch_port_congestion_index(origin_intl)
-            st.metric(f"🏗️ {origin_intl.split(' (')[0]} 혼잡도", f"{cg_o['congestion_score']}/100", delta=f"대기 {cg_o['waiting_days']}일")
+            st.metric(f"{origin_intl.split(' (')[0]} 혼잡도", f"{cg_o['congestion_score']}/100", delta=f"대기 {cg_o['waiting_days']}일")
         with cong_col2:
             cg_d = fetch_port_congestion_index(destination_intl)
-            st.metric(f"🏗️ {destination_intl.split(' (')[0]} 혼잡도", f"{cg_d['congestion_score']}/100", delta=f"대기 {cg_d['waiting_days']}일")
+            st.metric(f"{destination_intl.split(' (')[0]} 혼잡도", f"{cg_d['congestion_score']}/100", delta=f"대기 {cg_d['waiting_days']}일")
 
     render_ais_fleet_statistics(st.session_state.ais_vessels_intl, coverage_label="Global")
 
-    # Port Statistics
-    st.subheader("⚓ Global Port Statistics")
+    st.subheader("Global Port Statistics")
     col_stat1, col_stat2 = st.columns(2)
     with col_stat1:
-        st.metric("🌍 Total Ports", len(PORTS_DB))
+        st.metric("Total Ports", len(PORTS_DB))
     with col_stat2:
-        st.metric("🌊 Route Distance", f"{route_distance_intl:,.0f} km")
+        st.metric("Route Distance", f"{route_distance_intl:,.0f} km")
 
-    # Multi-modal routes
-    st.subheader("📦 Multi-Modal Transportation Routes")
+    st.subheader("Multi-Modal Transportation Routes")
     multimodal_routes_intl = generate_multimodal_routes_international(adjusted_distance)
 
     cols_intl = st.columns(len(multimodal_routes_intl))
@@ -2843,8 +2588,7 @@ with tab2:
             st.write(f"**Est. Time**: {est_days_intl} days")
             st.write(f"**Cost Index**: {total_cost_mult_intl:.2f}x")
 
-    # Strategies
-    st.subheader("🎯 AI-Powered Strategy Recommendation")
+    st.subheader("AI-Powered Strategy Recommendation")
     strategies_intl = generate_default_strategies_international(
         origin_intl, destination_intl, adjusted_distance, cargo_type_intl, dangerous_goods_intl, vessel_speed_intl
     )
@@ -2856,9 +2600,9 @@ with tab2:
         strat = strategies_intl[strat_key]
         st.markdown(f"### {strat.get('name', 'Strategy A')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱️ **Time**: {strat.get('time_days', 5)} days")
-        st.write(f"💰 **Cost**: {strat.get('cost_multiplier', 1.35):.2f}x")
-        st.write(f"⚠️ **Risk**: {strat.get('risk_score', 45)}/100")
+        st.write(f"⏱**Time**: {strat.get('time_days', 5)} days")
+        st.write(f"**Cost**: {strat.get('cost_multiplier', 1.35):.2f}x")
+        st.write(f"**Risk**: {strat.get('risk_score', 45)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
         if st.button("Select Strategy A", key="btn_intl_a"):
             st.session_state.selected_strategy = strat_key
@@ -2869,9 +2613,9 @@ with tab2:
         strat = strategies_intl.get(strat_key, {})
         st.markdown(f"### {strat.get('name', 'Strategy B')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱️ **Time**: {strat.get('time_days', 15)} days")
-        st.write(f"💰 **Cost**: {strat.get('cost_multiplier', 1.0):.2f}x")
-        st.write(f"⚠️ **Risk**: {strat.get('risk_score', 60)}/100")
+        st.write(f"⏱**Time**: {strat.get('time_days', 15)} days")
+        st.write(f"**Cost**: {strat.get('cost_multiplier', 1.0):.2f}x")
+        st.write(f"**Risk**: {strat.get('risk_score', 60)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
         if st.button("Select Strategy B", key="btn_intl_b"):
             st.session_state.selected_strategy = strat_key
@@ -2882,9 +2626,9 @@ with tab2:
         strat = strategies_intl.get(strat_key, {})
         st.markdown(f"### {strat.get('name', 'Strategy C')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱️ **Time**: {strat.get('time_days', 25)} days")
-        st.write(f"💰 **Cost**: {strat.get('cost_multiplier', 0.78):.2f}x")
-        st.write(f"⚠️ **Risk**: {strat.get('risk_score', 75)}/100")
+        st.write(f"⏱**Time**: {strat.get('time_days', 25)} days")
+        st.write(f"**Cost**: {strat.get('cost_multiplier', 0.78):.2f}x")
+        st.write(f"**Risk**: {strat.get('risk_score', 75)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
         if st.button("Select Strategy C", key="btn_intl_c"):
             st.session_state.selected_strategy = strat_key
@@ -2893,11 +2637,10 @@ with tab2:
     render_strategy_comparison(strategies_intl, adjusted_distance, cargo_weight_intl, container_40_intl, container_20_intl, dangerous_goods_intl, key_prefix="intl")
     render_route_comparison(intl_coords_lookup, origin_intl, key_prefix="intl", is_domestic=False)
 
-    # Simulation
-    st.subheader("📊 Strategy Scenario Simulation")
+    st.subheader("Strategy Scenario Simulation")
     selected_strat_intl = strategies_intl.get(st.session_state.selected_strategy, strategies_intl.get(list(strategies_intl.keys())[1], {}))
 
-    if st.button("▶️ Run Detailed Simulation", key="sim_intl_btn"):
+    if st.button("Run Detailed Simulation", key="sim_intl_btn"):
         st.session_state.run_simulation = True
 
     sim_result_intl = None
@@ -2911,49 +2654,47 @@ with tab2:
         cur_intl = st.session_state.currency
         col_sim1, col_sim2, col_sim3 = st.columns(3)
         with col_sim1:
-            st.metric("💰 Expected Cost", format_currency(sim_result_intl['cost_mean'], cur_intl),
+            st.metric("Expected Cost", format_currency(sim_result_intl['cost_mean'], cur_intl),
                        delta=f"±{format_currency(sim_result_intl['cost_std'], cur_intl)}")
         with col_sim2:
-            st.metric("⏱️ Expected Delivery", f"{sim_result_intl['time_mean']:.1f} days", delta=f"±{sim_result_intl['time_std']:.1f} days")
+            st.metric("⏱Expected Delivery", f"{sim_result_intl['time_mean']:.1f} days", delta=f"±{sim_result_intl['time_std']:.1f} days")
         with col_sim3:
-            st.metric("⚠️ Risk Score", f"{sim_result_intl['risk_mean']:.0f}/100", delta=f"±{sim_result_intl['risk_std']:.0f}")
+            st.metric("Risk Score", f"{sim_result_intl['risk_mean']:.0f}/100", delta=f"±{sim_result_intl['risk_std']:.0f}")
 
         render_simulation_charts(sim_result_intl)
         check_and_alert_risk(sim_result_intl, strategies_intl, st.session_state.selected_strategy, f"{origin_intl} → {destination_intl}", key_prefix="intl")
         render_delay_buffer_warning(sim_result_intl)
 
-        if st.button("🚚 진행중인 배송으로 등록", key="intl_register_shipment"):
+        if st.button("진행중인 배송으로 등록", key="intl_register_shipment"):
             db_save_active_shipment(f"{origin_intl} → {destination_intl}", "국제운송", origin_intl, destination_intl,
                                      selected_strat_intl.get("name", ""), sim_result_intl)
             st.success("진행중인 배송으로 등록했습니다. 홈 대시보드에서 확인하세요.")
 
     render_accept_reject_section(sim_result_intl, key_prefix="intl")
 
-    # 경로 통계
-    st.subheader("📊 Route Statistics (Risk Reflected)")
+    st.subheader("Route Statistics (Risk Reflected)")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("📍 Base Distance", f"{route_distance_intl:,.0f} km")
+        st.metric("Base Distance", f"{route_distance_intl:,.0f} km")
     with col2:
-        st.metric("📍 Adjusted Distance", f"{adjusted_distance:,.0f} km")
+        st.metric("Adjusted Distance", f"{adjusted_distance:,.0f} km")
     with col3:
         est_days = max(3, int(adjusted_distance / (vessel_speed_intl * 1.852 * 24)))
-        st.metric("⏱️ Est. Duration", f"{est_days} days")
+        st.metric("⏱Est. Duration", f"{est_days} days")
     with col4:
-        st.metric("💰 Cost Multiplier", f"{risk_multiplier:.2f}x")
+        st.metric("Cost Multiplier", f"{risk_multiplier:.2f}x")
 
-    # 리스크/비용 계산기 (통관일수 / CBAM / 보험료 / 포워더 신뢰도 / HS코드 관세)
     with st.expander(t("calculator_title")):
         clr = calculate_customs_clearance_days(incoterms, cargo_type_intl, dangerous_goods_intl)
         cc1, cc2, cc3, cc4 = cols_adaptive(4)
         with cc1:
-            st.metric("📤 수출통관", f"{clr['export_days']}일")
+            st.metric("수출통관", f"{clr['export_days']}일")
         with cc2:
-            st.metric("📥 수입통관", f"{clr['import_days']}일")
+            st.metric("수입통관", f"{clr['import_days']}일")
         with cc3:
             st.metric("⏳ 추가지연", f"{clr['extra_days']}일")
         with cc4:
-            st.metric("📅 총 통관일수", f"{clr['total_days']}일")
+            st.metric("총 통관일수", f"{clr['total_days']}일")
         st.caption(f"Incoterms {incoterms}: {clr['note']}")
 
         st.divider()
@@ -2962,7 +2703,7 @@ with tab2:
         est_co2 = multimodal_routes_intl.get("FULL_SEA", {}).get("co2", 0.2 * (adjusted_distance / 1000))
         if dest_country in eu_countries:
             cbam_cost = calculate_cbam_cost(est_co2)
-            st.metric("🌍 CBAM 개산 비용 (EU 도착)", format_currency(cbam_cost, st.session_state.currency),
+            st.metric("CBAM 개산 비용 (EU 도착)", format_currency(cbam_cost, st.session_state.currency),
                        delta=f"CO2 {est_co2:.1f}톤 × €{EU_CARBON_PRICE_EUR_PER_TON}/톤")
             st.caption("탄소국경조정제도(CBAM) 참고용 근사치이며 실제 부과액은 품목별 벤치마크에 따라 달라집니다.")
         else:
@@ -2970,13 +2711,13 @@ with tab2:
             st.caption(f"도착지({dest_country})는 EU 역외라 CBAM 대상이 아닙니다. (참고 CO2 배출량: {est_co2:.1f}톤)")
 
         st.divider()
-        st.write("**🧾 HS코드 관세 계산기**")
+        st.write("**HS코드 관세 계산기**")
         hs_code_input = st.text_input("HS코드 (앞 4자리, 예: 8708 자동차부품)", value="8708", key="intl_hs_code")
         tariff_info = fetch_customs_tariff_rate(hs_code_input, st.session_state.customs_api_key)
         est_cargo_value_intl = st.number_input("화물가액 (USD, 개산)", min_value=0.0, value=200000.0, step=5000.0, key="intl_cargo_value")
         if tariff_info.get("rate") is not None:
             duty = est_cargo_value_intl * (tariff_info["rate"] / 100)
-            st.metric(f"💵 개산 관세 ({tariff_info.get('desc', hs_code_input)})", format_currency(duty, st.session_state.currency),
+            st.metric(f"개산 관세 ({tariff_info.get('desc', hs_code_input)})", format_currency(duty, st.session_state.currency),
                        delta=f"세율 {tariff_info['rate']}% · {tariff_info['source']}")
         else:
             duty = 0.0
@@ -2986,19 +2727,18 @@ with tab2:
         st.divider()
         risk_for_insurance_intl = selected_strat_intl.get("risk_score", 60)
         premium_intl, rate_intl = estimate_insurance_premium(est_cargo_value_intl, risk_for_insurance_intl)
-        st.metric("🛡️ 개산 보험료", format_currency(premium_intl, st.session_state.currency), delta=f"요율 {rate_intl*100:.2f}%")
+        st.metric("개산 보험료", format_currency(premium_intl, st.session_state.currency), delta=f"요율 {rate_intl*100:.2f}%")
 
         st.divider()
         freight_cost_for_tco = sim_result_intl["cost_mean"] if sim_result_intl else selected_strat_intl.get("cost_multiplier", 1.0) * 5000
         tco = calculate_tco(freight_cost_for_tco, duty, cbam_cost, premium_intl)
-        st.metric("📦 총소요비용 (TCO 개산)", format_currency(tco, st.session_state.currency),
+        st.metric("총소요비용 (TCO 개산)", format_currency(tco, st.session_state.currency),
                    delta="운임 + 관세 + CBAM + 보험료")
 
         st.divider()
         st.write(t("forwarder_header"))
         render_forwarder_reputation()
 
-    # 리포트 내보내기 및 공유
     intl_route_info = {
         "구분": "국제운송", "Incoterms": incoterms, "출발항": origin_intl, "도착항": destination_intl,
         "경유항": ", ".join(transit_ports) if transit_ports else "없음",
@@ -3008,11 +2748,10 @@ with tab2:
     }
     render_report_and_share_section("ATLAS AI 국제운송 리포트", intl_route_info, selected_strat_intl, sim_result_intl, key_prefix="intl")
 
-    # 즐겨찾기
     render_favorites_manager({
         "type": "국제운송", "origin": origin_intl, "destination": destination_intl,
         "transit": ", ".join(transit_ports), "distance_km": round(adjusted_distance, 0),
     }, key_prefix="intl")
 
 st.markdown("---")
-st.info("✨ ATLAS AI v9.1 - Real-time AIS/FX/Weather Integration | AI Assistant | Persistent DB (Favorites/History/Shipments) | Strategy & Route Comparison | Risk Auto-Alert & Reroute | HS Tariff/TCO Calculator | KO/EN | Multi-Stop Routes | Monte Carlo Simulation")
+st.info("ATLAS AI v9.1 - Real-time AIS/FX/Weather Integration | AI Assistant | Persistent DB (Favorites/History/Shipments) | Strategy & Route Comparison | Risk Auto-Alert & Reroute | HS Tariff/TCO Calculator | KO/EN | Multi-Stop Routes | Monte Carlo Simulation")
