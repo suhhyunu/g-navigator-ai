@@ -81,9 +81,9 @@ LANG = {
 
         "compare_strategy_title": "전략 A/B/C 동시 비교",
         "compare_strategy_btn": "전체 전략 비교 실행",
-        "compare_route_title": "🆚 경로 비교 (다른 목적지와 비교)",
+        "compare_route_title": "경로 비교 (다른 목적지와 비교)",
         "compare_route_dest_label": "비교할 목적지",
-        "compare_route_btn": "🆚 비교하기",
+        "compare_route_btn": "비교하기",
 
         "accept_reject_title": "운송 수락 판단 지원 (Call 수락 AI)",
         "accept_reject_price_label": "견적/청구 운임 (USD)",
@@ -150,7 +150,7 @@ LANG = {
         "pattern_ai_spinner": "패턴 분석 중...",
         "pattern_ai_no_response": "Gemini 응답을 가져오지 못했습니다.",
         "pattern_ai_hint": "Gemini API 키를 등록하면 AI가 패턴에서 인사이트를 요약해줍니다.",
-        "delay_buffer_warning": "⏳ 예상 소요시간의 변동성이 높습니다 (표준편차 {std:.1f}일). 리드타임에 최소 **{buf}일**의 버퍼를 추가하는 것을 권장합니다.",
+        "delay_buffer_warning": "예상 소요시간의 변동성이 높습니다 (표준편차 {std:.1f}일). 리드타임에 최소 **{buf}일**의 버퍼를 추가하는 것을 권장합니다.",
 
         "dashboard_kpi_shipments": "진행중인 배송 건수",
         "dashboard_kpi_avg_risk": "평균 리스크 스코어",
@@ -195,9 +195,9 @@ LANG = {
 
         "compare_strategy_title": "Compare Strategies A/B/C",
         "compare_strategy_btn": "Run full strategy comparison",
-        "compare_route_title": "🆚 Compare Routes (vs. another destination)",
+        "compare_route_title": "Compare Routes (vs. another destination)",
         "compare_route_dest_label": "Destination to compare",
-        "compare_route_btn": "🆚 Compare",
+        "compare_route_btn": "Compare",
 
         "accept_reject_title": "Shipment Accept/Reject Advisor (Call AI)",
         "accept_reject_price_label": "Quoted freight rate (USD)",
@@ -264,7 +264,7 @@ LANG = {
         "pattern_ai_spinner": "Analyzing patterns...",
         "pattern_ai_no_response": "Could not get a response from Gemini.",
         "pattern_ai_hint": "Register a Gemini API key to get AI-generated pattern insights.",
-        "delay_buffer_warning": "⏳ Estimated delivery time shows high variability (std dev {std:.1f} days). We recommend adding at least **{buf} days** of lead-time buffer.",
+        "delay_buffer_warning": "Estimated delivery time shows high variability (std dev {std:.1f} days). We recommend adding at least **{buf} days** of lead-time buffer.",
 
         "dashboard_kpi_shipments": "Active Shipments",
         "dashboard_kpi_avg_risk": "Avg Risk Score",
@@ -389,6 +389,14 @@ BULK_CARGO_TYPES = [
     "Coal", "Iron Ore", "Grain", "Bauxite", "Phosphate",
     "Sulfur", "Fertilizer", "Wood Chips", "Cement", "Custom"
 ]
+
+DOOR_TO_DOOR_LASTMILE_DAYS = 2.5
+DOOR_TO_DOOR_LASTMILE_COST_RATE = 0.12
+DOMESTIC_TRUCK_SPEED_KMH = 60
+
+LCL_CONSOLIDATION_EXTRA_DAYS = 3.0
+LCL_COST_MULTIPLIER = 1.15
+LCL_RATE_PER_KG_USD = 0.8
 
 INCOTERMS_CLEARANCE_DAYS = {
     "EXW": {"export_days": 3, "import_days": 4, "note": "구매자가 수출/수입 통관 모두 책임 (실무상 셀러 협조 필요)"},
@@ -1051,6 +1059,32 @@ def run_scenario_simulation(strategy, route_distance, cargo_weight, containers_4
         "time_std": float(np.std(times)),
         "risk_mean": float(np.mean(risks)),
         "risk_std": float(np.std(risks))
+    }
+
+def find_nearest_korean_port(domestic_terminal_name):
+    origin_coord = DOMESTIC_TERMINALS[domestic_terminal_name][:2]
+    korean_ports = {name: info for name, info in PORTS_DB.items() if info[2] == "South Korea"}
+    best_name, best_dist = None, float("inf")
+    for name, info in korean_ports.items():
+        d = haversine_km(origin_coord[0], origin_coord[1], info[0], info[1])
+        if d < best_dist:
+            best_dist = d
+            best_name = name
+    return best_name, best_dist
+
+def apply_shipment_mode_adjustments(sim_result, extra_days=0.0, cost_multiplier=1.0):
+    new_times = sim_result["times"] + extra_days
+    new_costs = sim_result["costs"] * cost_multiplier
+    return {
+        "costs": new_costs,
+        "times": new_times,
+        "risks": sim_result["risks"],
+        "cost_mean": float(np.mean(new_costs)),
+        "cost_std": float(np.std(new_costs)),
+        "time_mean": float(np.mean(new_times)),
+        "time_std": float(np.std(new_times)),
+        "risk_mean": sim_result["risk_mean"],
+        "risk_std": sim_result["risk_std"],
     }
 
 def fetch_real_ais_vessels(latmin, latmax, lonmin, lonmax, username):
@@ -2000,7 +2034,7 @@ with tab1:
         dangerous_goods = st.checkbox(t("dangerous_goods_label"), value=False, key="domestic_danger")
 
         st.divider()
-        st.write("**⏰ Schedule**")
+        st.write("**Schedule**")
         dep_date = st.date_input("Departure Date", value=date.today(), key="domestic_dep_date")
         dep_time = st.time_input("Departure Time", value=dtime(hour=9, minute=0), key="domestic_dep_time")
         desired_arrival = st.date_input("Desired Arrival", value=date.today() + timedelta(days=3), key="domestic_arrival")
@@ -2180,7 +2214,7 @@ with tab1:
         st.metric("총거리", f"{total_distance:.0f} km")
     with col2:
         est_time = max(1, int(total_distance / vehicle_speed * 24))
-        st.metric("⏱예상시간", f"{est_time}시간")
+        st.metric("예상시간", f"{est_time}시간")
     with col3:
         st.metric("화물", f"{cargo_weight}톤")
 
@@ -2215,7 +2249,7 @@ with tab1:
         strat = strategies[strat_key]
         st.markdown(f"### {strat.get('name', 'Strategy A')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱**Time**: {strat.get('time_days', 1)} days")
+        st.write(f"**Time**: {strat.get('time_days', 1)} days")
         st.write(f"**Cost**: {strat.get('cost_multiplier', 1.5):.2f}x")
         st.write(f"**Risk**: {strat.get('risk_score', 30)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
@@ -2228,7 +2262,7 @@ with tab1:
         strat = strategies.get(strat_key, {})
         st.markdown(f"### {strat.get('name', 'Strategy B')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱**Time**: {strat.get('time_days', 2)} days")
+        st.write(f"**Time**: {strat.get('time_days', 2)} days")
         st.write(f"**Cost**: {strat.get('cost_multiplier', 1.0):.2f}x")
         st.write(f"**Risk**: {strat.get('risk_score', 45)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
@@ -2241,7 +2275,7 @@ with tab1:
         strat = strategies.get(strat_key, {})
         st.markdown(f"### {strat.get('name', 'Strategy C')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱**Time**: {strat.get('time_days', 3)} days")
+        st.write(f"**Time**: {strat.get('time_days', 3)} days")
         st.write(f"**Cost**: {strat.get('cost_multiplier', 0.7):.2f}x")
         st.write(f"**Risk**: {strat.get('risk_score', 55)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
@@ -2275,7 +2309,7 @@ with tab1:
             st.metric("Expected Cost", format_currency(sim_result['cost_mean'], cur),
                        delta=f"±{format_currency(sim_result['cost_std'], cur)}")
         with col_sim2:
-            st.metric("⏱Expected Delivery", f"{sim_result['time_mean']:.1f} days", delta=f"±{sim_result['time_std']:.1f} days")
+            st.metric("Expected Delivery", f"{sim_result['time_mean']:.1f} days", delta=f"±{sim_result['time_std']:.1f} days")
         with col_sim3:
             st.metric("Risk Score", f"{sim_result['risk_mean']:.0f}/100", delta=f"±{sim_result['risk_std']:.0f}")
 
@@ -2385,7 +2419,7 @@ with tab2:
         dangerous_goods_intl = st.checkbox("Dangerous Goods", value=False, key="intl_danger")
 
         st.divider()
-        st.write("**⏰ Schedule**")
+        st.write("**Schedule**")
         dep_date_intl = st.date_input("Departure Date", value=date.today(), key="intl_dep_date")
         dep_time_intl = st.time_input("Departure Time", value=dtime(hour=9, minute=0), key="intl_dep_time")
         desired_arrival_intl = st.date_input("Desired Arrival", value=date.today() + timedelta(days=30), key="intl_arrival")
@@ -2398,6 +2432,28 @@ with tab2:
         transit_ports = st.multiselect("Transit Ports (선택)", transit_port_options, key="intl_transit_ports")
 
         destination_intl = st.selectbox("Destination Port", [p for p in PORTS_DB.keys() if p != origin_intl], key="intl_destination")
+
+        st.divider()
+        st.write("**Shipment Mode (Door-to-Door)**")
+        shipment_mode_intl = st.radio(
+            "운송 형태", ["Port-to-Port", "Door-to-Door (라스트마일 포함)"], key="intl_shipment_mode"
+        )
+        if shipment_mode_intl.startswith("Door-to-Door"):
+            domestic_door_origin = st.selectbox(
+                "국내 출발지 (공장/창고)", list(DOMESTIC_TERMINALS.keys()), key="intl_door_origin"
+            )
+            final_destination_text = st.text_input(
+                "최종 도착지 (자유 입력, 예: Rotterdam 물류센터)", key="intl_door_dest"
+            )
+        else:
+            domestic_door_origin = None
+            final_destination_text = ""
+
+        st.divider()
+        st.write("**Cargo Consolidation**")
+        cargo_consolidation_intl = st.radio(
+            "화물 적재 방식", ["FCL (풀컨테이너)", "LCL (혼적/개별화주)"], key="intl_consolidation"
+        )
 
         st.divider()
         st.write("**Geopolitical Risks**")
@@ -2600,7 +2656,7 @@ with tab2:
         strat = strategies_intl[strat_key]
         st.markdown(f"### {strat.get('name', 'Strategy A')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱**Time**: {strat.get('time_days', 5)} days")
+        st.write(f"**Time**: {strat.get('time_days', 5)} days")
         st.write(f"**Cost**: {strat.get('cost_multiplier', 1.35):.2f}x")
         st.write(f"**Risk**: {strat.get('risk_score', 45)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
@@ -2613,7 +2669,7 @@ with tab2:
         strat = strategies_intl.get(strat_key, {})
         st.markdown(f"### {strat.get('name', 'Strategy B')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱**Time**: {strat.get('time_days', 15)} days")
+        st.write(f"**Time**: {strat.get('time_days', 15)} days")
         st.write(f"**Cost**: {strat.get('cost_multiplier', 1.0):.2f}x")
         st.write(f"**Risk**: {strat.get('risk_score', 60)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
@@ -2626,7 +2682,7 @@ with tab2:
         strat = strategies_intl.get(strat_key, {})
         st.markdown(f"### {strat.get('name', 'Strategy C')}")
         st.write(strat.get('description', ''))
-        st.write(f"⏱**Time**: {strat.get('time_days', 25)} days")
+        st.write(f"**Time**: {strat.get('time_days', 25)} days")
         st.write(f"**Cost**: {strat.get('cost_multiplier', 0.78):.2f}x")
         st.write(f"**Risk**: {strat.get('risk_score', 75)}/100")
         st.write("**Modes**: " + ", ".join(strat.get('modes', [])))
@@ -2636,6 +2692,7 @@ with tab2:
 
     render_strategy_comparison(strategies_intl, adjusted_distance, cargo_weight_intl, container_40_intl, container_20_intl, dangerous_goods_intl, key_prefix="intl")
     render_route_comparison(intl_coords_lookup, origin_intl, key_prefix="intl", is_domestic=False)
+    st.caption("전략 비교 및 경로 비교는 Port-to-Port 기준 개산치이며, Door-to-Door 라스트마일/LCL 보정은 아래 Strategy Scenario Simulation에만 반영됩니다.")
 
     st.subheader("Strategy Scenario Simulation")
     selected_strat_intl = strategies_intl.get(st.session_state.selected_strategy, strategies_intl.get(list(strategies_intl.keys())[1], {}))
@@ -2644,12 +2701,38 @@ with tab2:
         st.session_state.run_simulation = True
 
     sim_result_intl = None
+    inland_port_name, inland_dist_km, inland_time_days = None, 0.0, 0.0
+    if shipment_mode_intl.startswith("Door-to-Door") and domestic_door_origin:
+        inland_port_name, inland_dist_km = find_nearest_korean_port(domestic_door_origin)
+        inland_time_days = inland_dist_km / DOMESTIC_TRUCK_SPEED_KMH / 24
+
     if st.session_state.run_simulation:
         with st.spinner("Simulating..."):
             sim_result_intl = run_scenario_simulation(
                 selected_strat_intl, adjusted_distance, cargo_weight_intl, container_40_intl, container_20_intl, dangerous_goods_intl, 0
             )
+
+            if cargo_consolidation_intl.startswith("LCL"):
+                sim_result_intl = apply_shipment_mode_adjustments(
+                    sim_result_intl, extra_days=LCL_CONSOLIDATION_EXTRA_DAYS, cost_multiplier=LCL_COST_MULTIPLIER
+                )
+
+            if shipment_mode_intl.startswith("Door-to-Door") and domestic_door_origin:
+                sim_result_intl = apply_shipment_mode_adjustments(
+                    sim_result_intl,
+                    extra_days=inland_time_days + DOOR_TO_DOOR_LASTMILE_DAYS,
+                    cost_multiplier=(1 + DOOR_TO_DOOR_LASTMILE_COST_RATE)
+                )
+
         db_save_simulation_history("국제운송", origin_intl, destination_intl, selected_strat_intl.get("name", ""), sim_result_intl)
+
+        if shipment_mode_intl.startswith("Door-to-Door") and domestic_door_origin:
+            st.info(f"Door-to-Door: {domestic_door_origin} -> 최근접 국내항 {inland_port_name}"
+                    f"(내륙 {inland_dist_km:.0f}km, 약 {inland_time_days:.1f}일) + 도착지 라스트마일 버퍼 {DOOR_TO_DOOR_LASTMILE_DAYS}일, "
+                    f"운임 {DOOR_TO_DOOR_LASTMILE_COST_RATE*100:.0f}% 추가 반영됨"
+                    + (f" / 최종 도착지: {final_destination_text}" if final_destination_text else ""))
+        if cargo_consolidation_intl.startswith("LCL"):
+            st.caption(f"LCL(혼적) 반영: 통합 대기 +{LCL_CONSOLIDATION_EXTRA_DAYS:.0f}일, 운임 {LCL_COST_MULTIPLIER:.2f}x")
 
         cur_intl = st.session_state.currency
         col_sim1, col_sim2, col_sim3 = st.columns(3)
@@ -2657,7 +2740,7 @@ with tab2:
             st.metric("Expected Cost", format_currency(sim_result_intl['cost_mean'], cur_intl),
                        delta=f"±{format_currency(sim_result_intl['cost_std'], cur_intl)}")
         with col_sim2:
-            st.metric("⏱Expected Delivery", f"{sim_result_intl['time_mean']:.1f} days", delta=f"±{sim_result_intl['time_std']:.1f} days")
+            st.metric("Expected Delivery", f"{sim_result_intl['time_mean']:.1f} days", delta=f"±{sim_result_intl['time_std']:.1f} days")
         with col_sim3:
             st.metric("Risk Score", f"{sim_result_intl['risk_mean']:.0f}/100", delta=f"±{sim_result_intl['risk_std']:.0f}")
 
@@ -2680,7 +2763,7 @@ with tab2:
         st.metric("Adjusted Distance", f"{adjusted_distance:,.0f} km")
     with col3:
         est_days = max(3, int(adjusted_distance / (vessel_speed_intl * 1.852 * 24)))
-        st.metric("⏱Est. Duration", f"{est_days} days")
+        st.metric("Est. Duration", f"{est_days} days")
     with col4:
         st.metric("Cost Multiplier", f"{risk_multiplier:.2f}x")
 
@@ -2692,7 +2775,7 @@ with tab2:
         with cc2:
             st.metric("수입통관", f"{clr['import_days']}일")
         with cc3:
-            st.metric("⏳ 추가지연", f"{clr['extra_days']}일")
+            st.metric("추가지연", f"{clr['extra_days']}일")
         with cc4:
             st.metric("총 통관일수", f"{clr['total_days']}일")
         st.caption(f"Incoterms {incoterms}: {clr['note']}")
@@ -2745,6 +2828,9 @@ with tab2:
         "기본거리(km)": f"{route_distance_intl:,.0f}", "리스크반영거리(km)": f"{adjusted_distance:,.0f}",
         "화물종류": cargo_type_intl, "위험물여부": "예" if dangerous_goods_intl else "아니오",
         "선택 리스크": ", ".join(selected_risks) if selected_risks else "없음",
+        "운송형태": shipment_mode_intl, "화물적재방식": cargo_consolidation_intl,
+        "국내출발지": domestic_door_origin if domestic_door_origin else "-",
+        "최종도착지": final_destination_text if final_destination_text else "-",
     }
     render_report_and_share_section("ATLAS AI 국제운송 리포트", intl_route_info, selected_strat_intl, sim_result_intl, key_prefix="intl")
 
